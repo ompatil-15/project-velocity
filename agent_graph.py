@@ -1,5 +1,6 @@
 from typing import Literal
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
 
 from schema import AgentState
 from nodes.input_parser import input_parser_node
@@ -64,13 +65,30 @@ def build_graph():
     # Web Compliance -> Finalizer or Consultant
     workflow.add_conditional_edges("web_compliance_node", check_compliance)
 
+    # Consultant Logic for Retry
+    # If consultant runs, it means there was an error.
+    # After user interaction (resume), we want to loop back to the *beginning* or the specific check.
+    # For simplicity, let's route Consultant back to 'input_parser_node' (re-validate everything).
+
+    workflow.add_edge("consultant_fixer_node", "input_parser_node")
+
     # Finalizer -> END
     workflow.add_edge("finalizer_node", END)
 
-    # Consultant -> END (Manual Review)
-    workflow.add_edge("consultant_fixer_node", END)
+    # Initialize Checkpointer
+    checkpointer = MemorySaver()
 
-    return workflow.compile()
+    # We interrupt BEFORE the consultant runs, so the user can see the error,
+    # fix it, and then we RESUME into the consultant (or past it).
+    # actually, typical human-in-the-loop is: Agent does work -> Stops at Human Node -> Human Provides Input -> Agent Continues.
+    # Here: Verifier Fails -> Consultant Node (Suggests Fix) -> INTERRUPT -> User Fixes -> Resume (Check Again).
+
+    # Let's interrupt AFTER consultant_fixer_node so the frontend can receive the suggestions,
+    # and then the RESUME action triggers the retry.
+
+    return workflow.compile(
+        checkpointer=checkpointer, interrupt_after=["consultant_fixer_node"]
+    )
 
 
 # Global graph instance

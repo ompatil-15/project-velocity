@@ -35,6 +35,11 @@ class MerchantApplication(BaseModel):
     documents_path: Optional[str] = None  # Path to documents for OCR
 
 
+class ResumePayload(BaseModel):
+    updated_data: Optional[Dict[str, Any]] = None
+    user_message: Optional[str] = None
+
+
 # --- Graph State (AgentState) ---
 
 
