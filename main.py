@@ -21,13 +21,22 @@ async def start_onboarding(application: MerchantApplication):
     # Initialize Agent State
     initial_state = {
         "application_data": application.model_dump(),
+        "merchant_id": application.business_details.pan,
+        # Status
+        "stage": "INPUT",
+        "status": "IN_PROGRESS",
         # Default flags
         "is_auth_valid": False,
         "is_bank_verified": False,
         "is_doc_verified": False,
         "is_website_compliant": False,
+        # Feedback
+        "risk_score": 0.0,
         "verification_notes": [],
         "compliance_issues": [],
+        "missing_artifacts": [],
+        "consultant_plan": [],
+        # Internal
         "messages": [],
         "error_message": None,
         "retry_count": 0,

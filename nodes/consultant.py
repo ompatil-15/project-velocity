@@ -19,10 +19,9 @@ def consultant_fixer_node(state: AgentState) -> Dict[str, Any]:
 
     correction_plan = []
 
+    # Logic to populate structured plan
     if error:
         print(f"Consultant detected critical error: {error}")
-        # Logic to 'fix' common errors or ask user
-        # For simulation, if it's a Bank error, we might "request manual review" or "ask user to re-upload"
         correction_plan.append(f"Action: Send email to user regarding {error}")
 
     if issues:
@@ -30,13 +29,12 @@ def consultant_fixer_node(state: AgentState) -> Dict[str, Any]:
         for issue in issues:
             correction_plan.append(f"Suggestion: Update website to include {issue}")
 
-    # In a real agent, this might loop back to input or hold for human input.
-    # For this linear graph simulation, we will append messages and maybe specific flags.
-
+    # Update state with richer data
     return {
+        "consultant_plan": correction_plan,
         "verification_notes": [
             f"Consultant Intervention: {p}" for p in correction_plan
         ],
-        # "error_message": None # Clear error if fixed? Or keep history?
-        # We might not clear it until verified again.
+        "status": "NEEDS_REVIEW",
+        "risk_score": 0.8 if issues else 0.5,  # High risk if issues found
     }

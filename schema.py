@@ -1,4 +1,4 @@
-from typing import TypedDict, Annotated, List, Dict, Any, Optional
+from typing import TypedDict, Annotated, List, Dict, Any, Optional, Literal
 from pydantic import BaseModel, Field
 from langgraph.graph.message import add_messages
 from langchain_core.messages import BaseMessage
@@ -38,23 +38,48 @@ class MerchantApplication(BaseModel):
 # --- Graph State (AgentState) ---
 
 
-class AgentState(TypedDict):
-    # original application data
-    application_data: Dict[str, Any]
+class IdentityState(TypedDict):
+    """Holds core identity and application data."""
 
-    # Validation flags
+    application_data: Dict[str, Any]
+    merchant_id: Optional[str]
+
+
+class WorkflowState(TypedDict):
+    """Tracks the execution flow and status of the agent."""
+
+    stage: Literal["INPUT", "DOCS", "BANK", "COMPLIANCE", "FINAL"]
+    status: Literal["IN_PROGRESS", "NEEDS_REVIEW", "COMPLETED", "REJECTED"]
+    next_step: Optional[str]
+    retry_count: int
+    error_message: Optional[str]
+    messages: Annotated[List[BaseMessage], add_messages]
+
+
+class ValidationState(TypedDict):
+    """Flags for core validation logic gates."""
+
     is_auth_valid: bool
     is_bank_verified: bool
     is_doc_verified: bool
     is_website_compliant: bool
 
-    # Details from verification
-    verification_notes: List[str]
-    compliance_issues: List[str]  # Add this field as it was used in nodes
-    compliance_report: Dict[str, Any]
 
-    # Internal agent control
-    messages: Annotated[List[BaseMessage], add_messages]
-    error_message: Optional[str]
-    next_step: Optional[str]
-    retry_count: int
+class ConsultantState(TypedDict):
+    """Data related to risk assessment and consultant feedback."""
+
+    risk_score: float  # 0.0 to 1.0 (1.0 = High Risk)
+    verification_notes: List[str]
+    compliance_issues: List[str]
+    missing_artifacts: List[str]
+    consultant_plan: List[str]
+
+
+class AgentState(IdentityState, WorkflowState, ValidationState, ConsultantState):
+    """
+    Unified state for the Graph, composed of specialized sub-states.
+    Follows Interface Segregation by allowing modules to depend on
+    sub-interfaces if needed (though TypedDict structure is flat).
+    """
+
+    pass
