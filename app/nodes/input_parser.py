@@ -1,5 +1,5 @@
 from typing import Any, Dict
-from schema import AgentState, MerchantApplication
+from app.schema import AgentState, MerchantApplication
 
 
 def input_parser_node(state: AgentState) -> Dict[str, Any]:

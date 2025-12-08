@@ -7,3 +7,9 @@ pydantic
 playwright
 python-dotenv
 requests
+langgraph-checkpoint-sqlite
+aiosqlite
+langchain-openai
+langchain-anthropic
+langchain-aws
+boto3

@@ -39,16 +39,20 @@ def run_integration_test():
 
         # 1. Start Onboarding
         print("\n--- Step 1: Start Onboarding (Expect NEED_REVIEW) ---")
-        r = requests.post("http://localhost:8000/onboard/start", json=PAYLOAD)
+        r = requests.post("http://localhost:8000/onboard", json=PAYLOAD)
         data = r.json()
+        print(f"Full Response: {data}")
         thread_id = data.get("thread_id")
         print(f"Status: {data.get('status')} | Thread ID: {thread_id}")
+        consultant_plan = data.get("result", {}).get("consultant_plan")
+        notes = data.get("result", {}).get("verification_notes", [])
+        print(f"Consultant Plan: {consultant_plan}")
+        print(f"Verification Notes: {notes}")
 
         # We expect it to finish the run and STOP at the interrupt (after consultant)
         # Because we await ainvoke, it returns the state AT the interrupt.
         # Check Consultant Plan
-        res = data.get("result", {})
-        print("Consultant Plan:", res.get("consultant_plan"))
+        # The above lines now cover consultant plan and verification notes.
 
         if not thread_id:
             print("Error: No thread ID returned.")

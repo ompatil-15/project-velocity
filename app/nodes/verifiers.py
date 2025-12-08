@@ -1,6 +1,6 @@
 from typing import Any, Dict
 import random
-from schema import AgentState
+from app.schema import AgentState
 
 
 def doc_intelligence_node(state: AgentState) -> Dict[str, Any]:

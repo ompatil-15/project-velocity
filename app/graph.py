@@ -1,12 +1,18 @@
 from typing import Literal
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+import aiosqlite
 
-from schema import AgentState
-from nodes.input_parser import input_parser_node
-from nodes.verifiers import doc_intelligence_node, bank_verifier_node, finalizer_node
-from nodes.consultant import consultant_fixer_node
-from nodes.web_compliance import web_compliance_node
+from app.schema import AgentState
+from app.nodes.input_parser import input_parser_node
+from app.nodes.verifiers import (
+    doc_intelligence_node,
+    bank_verifier_node,
+    finalizer_node,
+)
+from app.nodes.consultant import consultant_fixer_node
+from app.nodes.web_compliance import web_compliance_node
 
 
 def build_graph():
@@ -75,21 +81,11 @@ def build_graph():
     # Finalizer -> END
     workflow.add_edge("finalizer_node", END)
 
-    # Initialize Checkpointer
-    checkpointer = MemorySaver()
+    # For the global instance, we will not compile here with checkpointer.
+    # Instead we return the workflow and let main.py handle the compilation with the async checkpointer.
 
-    # We interrupt BEFORE the consultant runs, so the user can see the error,
-    # fix it, and then we RESUME into the consultant (or past it).
-    # actually, typical human-in-the-loop is: Agent does work -> Stops at Human Node -> Human Provides Input -> Agent Continues.
-    # Here: Verifier Fails -> Consultant Node (Suggests Fix) -> INTERRUPT -> User Fixes -> Resume (Check Again).
-
-    # Let's interrupt AFTER consultant_fixer_node so the frontend can receive the suggestions,
-    # and then the RESUME action triggers the retry.
-
-    return workflow.compile(
-        checkpointer=checkpointer, interrupt_after=["consultant_fixer_node"]
-    )
+    return workflow
 
 
-# Global graph instance
-graph = build_graph()
+# We no longer export a compiled 'graph' here.
+# Main.py will use build_graph() and compile it with the checkpointer.
