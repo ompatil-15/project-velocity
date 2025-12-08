@@ -24,6 +24,7 @@ PAYLOAD = {
         "email": "john@example.com",
         "aadhaar": "123412341234",
     },
+    "documents_path": "/Users/om.patil/Code/project-velocity/tests/sample_kyc.pdf",
 }
 
 

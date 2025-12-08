@@ -16,3 +16,5 @@ boto3
 duckduckgo-search
 python-whois
 dnspython
+docling
+langchain-docling
