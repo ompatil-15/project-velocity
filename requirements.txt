@@ -13,3 +13,6 @@ langchain-openai
 langchain-anthropic
 langchain-aws
 boto3
+duckduckgo-search
+python-whois
+dnspython
