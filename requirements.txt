@@ -19,3 +19,5 @@ python-whois
 dnspython
 docling
 langchain-docling
+resend
+weasyprint

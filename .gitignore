@@ -217,4 +217,17 @@ __marimo__/
 # App specific
 evidence/
 uploads/
-db/checkpoints.sqlite
+agreements/
+
+# SQLite database files
+db/*.sqlite
+db/*.sqlite-wal
+db/*.sqlite-shm
+
+# macOS
+.DS_Store
+
+# Email templates
+app/templates/email/welcome.html
+app/templates/email/welcome.txt
+app/templates/agreement/merchant_agreement.html

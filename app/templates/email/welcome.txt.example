@@ -1,0 +1,65 @@
+[COMPANY_NAME] PAYMENT SERVICES
+Merchant Account Activation
+============================================================
+
+Dear {{ signatory_name }},
+
+We are pleased to inform you that your merchant account application 
+has been reviewed and approved. Your account is now active and ready 
+for payment processing.
+
+
+ACCOUNT INFORMATION
+------------------------------------------------------------
+Merchant ID:          {{ merchant_id }}
+Business Name:        {{ business_name }}
+Business Category:    {{ business_category }}
+PAN:                  {{ pan }}
+GSTIN:                {{ gstin }}
+Account Status:       Active
+
+
+SETTLEMENT BANK ACCOUNT
+------------------------------------------------------------
+Account Holder:       {{ account_holder_name }}
+Account Number:       {{ account_number_masked }}
+IFSC Code:            {{ ifsc }}
+
+
+NEXT STEPS
+------------------------------------------------------------
+1. Review the Merchant Services Agreement attached to this email.
+2. Access your merchant dashboard to configure payment settings.
+3. Complete the API integration using the documentation provided.
+4. Perform a test transaction to verify your integration.
+5. Contact our support team when you are ready to go live.
+
+
+IMPORTANT: Please retain the attached Merchant Services Agreement 
+for your records. This document outlines the terms and conditions 
+governing your use of [COMPANY_NAME] payment services.
+
+Should you have any questions regarding your account or require 
+assistance with the integration process, please contact our 
+merchant support team.
+
+
+Merchant Onboarding Team
+[COMPANY_NAME] Payments Private Limited
+
+
+============================================================
+MERCHANT SUPPORT
+------------------------------------------------------------
+Email: [SUPPORT_EMAIL]
+Phone: [SUPPORT_PHONE] (Monday to Saturday, 9:00 AM to 6:00 PM IST)
+
+------------------------------------------------------------
+This is an automated communication from [COMPANY_NAME] Payments Private 
+Limited. Please do not reply to this email. For assistance, 
+contact merchant support using the details provided above.
+
+[COMPANY_NAME] Payments Private Limited
+[COMPANY_ADDRESS]
+CIN: [COMPANY_CIN]
+

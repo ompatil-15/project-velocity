@@ -365,9 +365,53 @@ SIMULATE_WEB_NO_REFUND_POLICY=true
 
 ---
 
+## Agreement Download
+
+```
+GET /agreements/{merchant_id}
+```
+
+Download the merchant agreement PDF generated on successful onboarding.
+
+**Response:** PDF file download
+
+**Example:**
+```bash
+curl -O http://localhost:8000/agreements/550e8400-e29b-41d4-a716-446655440004
+```
+
+---
+
+## On Successful Onboarding
+
+When status becomes `COMPLETED`:
+
+1. **Agreement PDF** is generated at `/agreements/{merchant_id}`
+2. **Welcome Email** is sent to signatory email with:
+   - Account details summary
+   - Next steps instructions
+   - Agreement PDF attachment
+
+---
+
 ## Debug Endpoints
 
 ```
-GET /debug/threads  → List all thread IDs
-GET /debug/jobs     → List all jobs with status
+GET  /debug/threads     → List all thread IDs
+GET  /debug/jobs        → List all jobs with status
+GET  /debug/simulate    → View simulation flags
+POST /debug/simulate    → Set simulation flags
+DELETE /debug/simulate  → Reset simulation flags
+POST /debug/test-email  → Send test welcome email
+POST /debug/test-pdf    → Generate test agreement PDF
+```
+
+### Test Email
+```bash
+curl -X POST "http://localhost:8000/debug/test-email?to_email=patilom001@gmail.com"
+```
+
+### Test PDF
+```bash
+curl -X POST http://localhost:8000/debug/test-pdf
 ```

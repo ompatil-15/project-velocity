@@ -132,11 +132,45 @@ async def get_uploaded_file(filename: str):
     return FileResponse(file_path)
 
 
+# --- Agreement Download ---
+
+@app.get("/agreements/{merchant_id}")
+async def get_agreement(merchant_id: str):
+    """
+    Download the merchant agreement PDF.
+    
+    The agreement is generated upon successful onboarding completion.
+    """
+    from app.utils.pdf_generator import get_agreement_path
+    
+    agreement_path = await get_agreement_path(merchant_id)
+    
+    if not agreement_path:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Agreement not found for merchant {merchant_id}. It may not be generated yet."
+        )
+    
+    filename = f"Merchant_Agreement_{merchant_id}.pdf"
+    if agreement_path.endswith(".html"):
+        filename = f"Merchant_Agreement_{merchant_id}.html"
+    
+    return FileResponse(
+        agreement_path,
+        filename=filename,
+        media_type="application/pdf" if agreement_path.endswith(".pdf") else "text/html",
+    )
+
+
 async def run_onboarding_workflow(thread_id: str, initial_state: dict):
     """
     Background task that runs the onboarding workflow.
     Updates job status and action items in SQLite as it progresses.
+    On success, generates agreement PDF and sends welcome email.
     """
+    from app.utils.pdf_generator import generate_agreement_pdf
+    from app.utils.email_service import send_welcome_email
+    
     try:
         # Update status to processing
         await job_store.update_job(thread_id, status=JobStatus.PROCESSING)
@@ -172,11 +206,47 @@ async def run_onboarding_workflow(thread_id: str, initial_state: dict):
                 action_items=action_items,
             )
         else:
+            # SUCCESS: Generate agreement PDF and send welcome email
+            print(f"[Background] SUCCESS - Generating agreement and sending email")
+            merchant_id = final_state.get("merchant_id", thread_id)
+            merchant_data = final_state.get("application_data", {})
+            
+            print(f"[Background] Merchant ID: {merchant_id}")
+            print(f"[Background] Merchant Data Keys: {merchant_data.keys() if merchant_data else 'None'}")
+            
+            # Generate agreement PDF
+            pdf_result = await generate_agreement_pdf(
+                merchant_data=merchant_data,
+                merchant_id=merchant_id,
+            )
+            print(f"[Background] Agreement PDF: {pdf_result}")
+            
+            # Send welcome email
+            signatory_email = merchant_data.get("signatory_details", {}).get("email")
+            print(f"[Background] Signatory email from data: {signatory_email}")
+            # Use test email in dev mode if not provided
+            if not signatory_email:
+                signatory_email = os.getenv("TEST_EMAIL", "patilom001@gmail.com")
+                print(f"[Background] Using fallback email: {signatory_email}")
+            
+            email_result = await send_welcome_email(
+                to_email=signatory_email,
+                merchant_data=merchant_data,
+                merchant_id=merchant_id,
+                agreement_pdf_path=pdf_result.get("file_path"),
+            )
+            print(f"[Background] Welcome email result: {email_result}")
+            
+            # Update job with completion info
             await job_store.update_job(
                 thread_id,
                 status=JobStatus.COMPLETED,
                 stage="FINAL",
-                result=final_state,
+                result={
+                    **final_state,
+                    "agreement": pdf_result,
+                    "email": email_result,
+                },
                 action_items=action_items,
             )
 
@@ -623,6 +693,30 @@ async def reset_simulations():
         "message": "All runtime flags reset. Now using environment variables.",
         "active": sim.get_active_simulations(),
     }
+
+
+# --- Test Endpoints for Email and PDF ---
+
+@app.post("/debug/test-email")
+async def test_email(to_email: str = Query(default="patilom001@gmail.com")):
+    """
+    Send a test welcome email to verify email configuration.
+    """
+    from app.utils.email_service import send_test_email
+    
+    result = await send_test_email(to_email)
+    return result
+
+
+@app.post("/debug/test-pdf")
+async def test_pdf():
+    """
+    Generate a test agreement PDF to verify PDF generation.
+    """
+    from app.utils.pdf_generator import generate_test_agreement
+    
+    result = await generate_test_agreement()
+    return result
 
 
 if __name__ == "__main__":

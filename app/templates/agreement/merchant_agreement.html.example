@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Merchant Services Agreement</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2.5cm 2cm;
+            @top-center {
+                content: "MERCHANT SERVICES AGREEMENT";
+                font-size: 8pt;
+                color: #666666;
+            }
+            @bottom-center {
+                content: "Page " counter(page) " of " counter(pages);
+                font-size: 8pt;
+                color: #666666;
+            }
+            @bottom-right {
+                content: "{{ agreement_number }}";
+                font-size: 8pt;
+                color: #666666;
+            }
+        }
+        
+        body {
+            font-family: 'Times New Roman', Times, Georgia, serif;
+            font-size: 11pt;
+            line-height: 1.6;
+            color: #000000;
+            margin: 0;
+            padding: 0;
+            text-align: justify;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #000000;
+        }
+        
+        .header h1 {
+            font-size: 16pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 0 0 10px 0;
+        }
+        
+        .header .doc-type {
+            font-size: 11pt;
+            font-style: italic;
+            margin: 5px 0;
+        }
+        
+        .agreement-meta {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #000000;
+            background-color: #f9f9f9;
+        }
+        
+        .agreement-meta table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .agreement-meta td {
+            padding: 5px 10px;
+            font-size: 10pt;
+        }
+        
+        .agreement-meta .label {
+            font-weight: bold;
+            width: 200px;
+        }
+        
+        .preamble {
+            margin: 25px 0;
+            font-size: 11pt;
+        }
+        
+        .article {
+            margin: 20px 0;
+        }
+        
+        .article-title {
+            font-size: 11pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 25px 0 15px 0;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #cccccc;
+        }
+        
+        .section {
+            margin: 15px 0 15px 20px;
+        }
+        
+        .section-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .clause {
+            margin: 10px 0 10px 20px;
+            text-align: justify;
+        }
+        
+        .sub-clause {
+            margin: 8px 0 8px 40px;
+        }
+        
+        .party-block {
+            margin: 15px 0;
+            padding: 15px;
+            border: 1px solid #cccccc;
+        }
+        
+        .party-block .party-title {
+            font-weight: bold;
+            font-size: 10pt;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            color: #333333;
+        }
+        
+        .schedule {
+            margin: 20px 0;
+            page-break-before: always;
+        }
+        
+        .schedule-title {
+            font-size: 12pt;
+            font-weight: bold;
+            text-align: center;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #000000;
+        }
+        
+        table.data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 10pt;
+        }
+        
+        table.data-table th,
+        table.data-table td {
+            border: 1px solid #000000;
+            padding: 8px 10px;
+            text-align: left;
+        }
+        
+        table.data-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            width: 35%;
+        }
+        
+        .signature-section {
+            margin-top: 50px;
+            page-break-inside: avoid;
+        }
+        
+        .signature-block {
+            display: inline-block;
+            width: 45%;
+            vertical-align: top;
+            margin-top: 40px;
+        }
+        
+        .signature-line {
+            border-top: 1px solid #000000;
+            margin-top: 80px;
+            padding-top: 10px;
+        }
+        
+        .signature-label {
+            font-size: 10pt;
+        }
+        
+        .witness-section {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #cccccc;
+        }
+        
+        .execution-clause {
+            margin: 30px 0;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .legal-notice {
+            margin: 20px 0;
+            padding: 10px;
+            border: 1px solid #000000;
+            font-size: 9pt;
+            text-align: center;
+            background-color: #ffffee;
+        }
+        
+        ol.legal-list {
+            counter-reset: item;
+            list-style-type: none;
+            padding-left: 0;
+        }
+        
+        ol.legal-list > li {
+            counter-increment: item;
+            margin: 10px 0;
+        }
+        
+        ol.legal-list > li:before {
+            content: counter(item) ". ";
+            font-weight: bold;
+        }
+        
+        ol.alpha-list {
+            list-style-type: lower-alpha;
+            margin-left: 30px;
+        }
+        
+        ol.roman-list {
+            list-style-type: lower-roman;
+            margin-left: 30px;
+        }
+        
+        .recital {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .recital:before {
+            content: "WHEREAS ";
+            font-weight: bold;
+        }
+        
+        .definitions dt {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .definitions dd {
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Merchant Services Agreement</h1>
+        <div class="doc-type">Payment Processing and Settlement Services</div>
+    </div>
+    
+    <div class="agreement-meta">
+        <table>
+            <tr>
+                <td class="label">Agreement Number:</td>
+                <td>{{ agreement_number }}</td>
+            </tr>
+            <tr>
+                <td class="label">Date of Execution:</td>
+                <td>{{ effective_date }}</td>
+            </tr>
+            <tr>
+                <td class="label">Place of Execution:</td>
+                <td>[COMPANY_CITY], India</td>
+            </tr>
+        </table>
+    </div>
+    
+    <div class="preamble">
+        <p>This Merchant Services Agreement (hereinafter referred to as the <strong>"Agreement"</strong>) is made and entered into on the date mentioned above,</p>
+        
+        <p style="text-align: center; margin: 20px 0;"><strong>BY AND BETWEEN</strong></p>
+        
+        <div class="party-block">
+            <div class="party-title">First Party (Service Provider)</div>
+            <strong>[COMPANY_NAME] Payments Private Limited</strong>, a company incorporated under the Companies Act, 2013, having its registered office at [COMPANY_ADDRESS], India (CIN: [COMPANY_CIN]), hereinafter referred to as <strong>"[COMPANY_NAME]"</strong> or <strong>"Service Provider"</strong> (which expression shall, unless repugnant to the context or meaning thereof, include its successors and permitted assigns) of the FIRST PART;
+        </div>
+        
+        <p style="text-align: center; margin: 20px 0;"><strong>AND</strong></p>
+        
+        <div class="party-block">
+            <div class="party-title">Second Party (Merchant)</div>
+            <strong>{{ business_name }}</strong>, a {{ entity_type }} having PAN {{ pan }} and GSTIN {{ gstin }}, represented by its authorized signatory <strong>{{ signatory_name }}</strong>, hereinafter referred to as the <strong>"Merchant"</strong> (which expression shall, unless repugnant to the context or meaning thereof, include its successors and permitted assigns) of the SECOND PART.
+        </div>
+        
+        <p style="margin-top: 20px;">[COMPANY_NAME] and the Merchant are hereinafter individually referred to as <strong>"Party"</strong> and collectively as <strong>"Parties"</strong>.</p>
+    </div>
+    
+    <div class="article">
+        <div class="article-title">Recitals</div>
+        
+        <p class="recital">[COMPANY_NAME] is engaged in the business of providing payment gateway and processing services, enabling merchants to accept electronic payments from customers through various payment instruments;</p>
+        
+        <p class="recital">The Merchant is engaged in the business of {{ business_category }} and desires to avail the payment processing services of [COMPANY_NAME] to facilitate online transactions;</p>
+        
+        <p class="recital">[COMPANY_NAME] has agreed to provide such services to the Merchant subject to the terms and conditions set forth herein;</p>
+        
+        <p style="margin-top: 20px;"><strong>NOW, THEREFORE</strong>, in consideration of the mutual covenants and agreements herein contained, and for other good and valuable consideration, the receipt and sufficiency of which are hereby acknowledged, the Parties agree as follows:</p>
+    </div>
+    
+    <div class="article">
+        <div class="article-title">Article I: Definitions and Interpretation</div>
+        
+        <div class="section">
+            <div class="section-title">1.1 Definitions</div>
+            <p>In this Agreement, unless the context otherwise requires, the following terms shall have the meanings ascribed to them:</p>
+            
+            <dl class="definitions">
+                <dt>"Applicable Law"</dt>
+                <dd>means any statute, law, regulation, ordinance, rule, judgment, order, decree, by-law, approval from the concerned authority, directive, guideline, policy, requirement, or other governmental restriction or any similar form of decision of, or determination by, any governmental authority having jurisdiction over the matter in question.</dd>
+                
+                <dt>"Business Day"</dt>
+                <dd>means a day other than Saturday, Sunday, or any public holiday in India on which banks are open for general banking business.</dd>
+                
+                <dt>"Chargeback"</dt>
+                <dd>means a demand by a card issuer for a merchant to make good on a loss on a fraudulent or disputed transaction.</dd>
+                
+                <dt>"Payment Instruments"</dt>
+                <dd>means credit cards, debit cards, net banking, UPI, mobile wallets, and any other electronic payment methods supported by [COMPANY_NAME].</dd>
+                
+                <dt>"Settlement"</dt>
+                <dd>means the transfer of funds from [COMPANY_NAME] to the Merchant's designated bank account after deduction of applicable fees.</dd>
+                
+                <dt>"Transaction"</dt>
+                <dd>means any payment made by a customer to the Merchant using the [COMPANY_NAME] payment gateway.</dd>
+            </dl>
+        </div>
+    </div>
+    
+    <div class="article">
+        <div class="article-title">Article II: Scope of Services</div>
+        
+        <div class="section">
+            <div class="section-title">2.1 Services</div>
+            <p>Subject to the terms and conditions of this Agreement, [COMPANY_NAME] agrees to provide the Merchant with the following services:</p>
+            
+            <ol class="alpha-list">
+                <li>Payment gateway services for accepting electronic payments;</li>
+                <li>Real-time transaction authorization and processing;</li>
+                <li>Settlement of funds to the Merchant's designated bank account;</li>
+                <li>Access to the Merchant Dashboard for transaction reporting and analytics;</li>
+                <li>Fraud detection and prevention services;</li>
+                <li>Technical support for integration and operations.</li>
+            </ol>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">2.2 Integration</div>
+            <p>The Merchant shall integrate the [COMPANY_NAME] payment gateway in accordance with the technical documentation provided by [COMPANY_NAME]. [COMPANY_NAME] shall provide reasonable technical assistance for such integration.</p>
+        </div>
+    </div>
+    
+    <div class="article">
+        <div class="article-title">Article III: Fees and Payment Terms</div>
+        
+        <div class="section">
+            <div class="section-title">3.1 Transaction Fees</div>
+            <p>The Merchant agrees to pay [COMPANY_NAME] the transaction fees as specified in Schedule A annexed hereto. All fees are exclusive of applicable taxes.</p>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">3.2 Settlement</div>
+            <p>[COMPANY_NAME] shall settle the Transaction amounts to the Merchant's designated bank account within T+2 Business Days, subject to completion of all verification requirements and deduction of applicable fees.</p>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">3.3 Deductions</div>
+            <p>[COMPANY_NAME] reserves the right to deduct from settlements any amounts owed by the Merchant including but not limited to transaction fees, chargebacks, refunds, and penalties.</p>
+        </div>
+    </div>
+    
+    <div class="article">
+        <div class="article-title">Article IV: Merchant Obligations</div>
+        
+        <div class="section">
+            <div class="section-title">4.1 Compliance</div>
+            <p>The Merchant shall:</p>
+            
+            <ol class="alpha-list">
+                <li>Comply with all Applicable Laws and regulations governing its business and electronic payments;</li>
+                <li>Comply with the rules and regulations of card networks (Visa, Mastercard, RuPay, etc.);</li>
+                <li>Maintain PCI-DSS compliance as applicable to its business operations;</li>
+                <li>Not engage in any business activities prohibited under [COMPANY_NAME]'s Acceptable Use Policy;</li>
+                <li>Maintain clear and accessible refund, cancellation, and privacy policies on its website;</li>
+                <li>Respond promptly to chargeback inquiries and provide necessary documentation;</li>
+                <li>Notify [COMPANY_NAME] immediately of any suspected fraudulent activity.</li>
+            </ol>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">4.2 Information Accuracy</div>
+            <p>The Merchant represents and warrants that all information provided to [COMPANY_NAME] is true, accurate, and complete. The Merchant shall promptly notify [COMPANY_NAME] of any changes to such information.</p>
+        </div>
+    </div>
+    
+    <div class="article">
+        <div class="article-title">Article V: Data Protection</div>
+        
+        <div class="section">
+            <p>Both Parties agree to comply with applicable data protection laws including the Information Technology Act, 2000, and the Digital Personal Data Protection Act, 2023. The Merchant shall not store CVV/CVC numbers, full magnetic stripe data, or any other prohibited cardholder data.</p>
+        </div>
+    </div>
+    
+    <div class="article">
+        <div class="article-title">Article VI: Term and Termination</div>
+        
+        <div class="section">
+            <div class="section-title">6.1 Term</div>
+            <p>This Agreement shall come into effect on the date of execution and shall continue until terminated in accordance with this Article.</p>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">6.2 Termination for Convenience</div>
+            <p>Either Party may terminate this Agreement by providing thirty (30) days prior written notice to the other Party.</p>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">6.3 Termination for Cause</div>
+            <p>Either Party may terminate this Agreement immediately upon written notice if the other Party commits a material breach of this Agreement and fails to cure such breach within fifteen (15) days of receiving notice thereof.</p>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">6.4 Effect of Termination</div>
+            <p>Upon termination, all pending settlements shall be processed subject to any holdback period, and any outstanding fees shall become immediately due and payable.</p>
+        </div>
+    </div>
+    
+    <div class="article">
+        <div class="article-title">Article VII: Limitation of Liability</div>
+        
+        <div class="section">
+            <p>To the maximum extent permitted by Applicable Law, neither Party shall be liable to the other for any indirect, incidental, special, consequential, or punitive damages arising out of or related to this Agreement. [COMPANY_NAME]'s total aggregate liability under this Agreement shall not exceed the total fees paid by the Merchant to [COMPANY_NAME] in the twelve (12) months immediately preceding the event giving rise to such liability.</p>
+        </div>
+    </div>
+    
+    <div class="article">
+        <div class="article-title">Article VIII: Dispute Resolution</div>
+        
+        <div class="section">
+            <div class="section-title">8.1 Amicable Settlement</div>
+            <p>The Parties shall attempt to resolve any dispute arising out of or relating to this Agreement through good faith negotiations.</p>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">8.2 Arbitration</div>
+            <p>If the dispute is not resolved within thirty (30) days, it shall be referred to and finally resolved by arbitration in accordance with the Arbitration and Conciliation Act, 1996. The arbitration shall be conducted by a sole arbitrator mutually appointed by the Parties. The seat of arbitration shall be [COMPANY_CITY], Haryana. The language of arbitration shall be English.</p>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">8.3 Governing Law</div>
+            <p>This Agreement shall be governed by and construed in accordance with the laws of India. Subject to the arbitration clause above, the courts of [COMPANY_CITY] shall have exclusive jurisdiction.</p>
+        </div>
+    </div>
+    
+    <div class="article">
+        <div class="article-title">Article IX: General Provisions</div>
+        
+        <div class="section">
+            <div class="section-title">9.1 Entire Agreement</div>
+            <p>This Agreement, together with its Schedules, constitutes the entire agreement between the Parties with respect to the subject matter hereof and supersedes all prior negotiations, representations, warranties, and agreements between the Parties.</p>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">9.2 Amendment</div>
+            <p>This Agreement may not be amended or modified except by a written instrument signed by both Parties.</p>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">9.3 Assignment</div>
+            <p>The Merchant shall not assign or transfer this Agreement or any rights or obligations hereunder without the prior written consent of [COMPANY_NAME].</p>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">9.4 Severability</div>
+            <p>If any provision of this Agreement is held to be invalid or unenforceable, the remaining provisions shall continue in full force and effect.</p>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">9.5 Waiver</div>
+            <p>No waiver of any provision of this Agreement shall be effective unless in writing and signed by the Party granting such waiver.</p>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">9.6 Notices</div>
+            <p>All notices under this Agreement shall be in writing and shall be deemed duly given when delivered personally, sent by email with confirmation of receipt, or sent by registered post to the addresses specified in Schedule B.</p>
+        </div>
+    </div>
+    
+    <div class="schedule">
+        <div class="schedule-title">Schedule A: Merchant Details</div>
+        
+        <p><strong>A.1 Business Information</strong></p>
+        <table class="data-table">
+            <tr>
+                <th>Legal Business Name</th>
+                <td>{{ business_name }}</td>
+            </tr>
+            <tr>
+                <th>Entity Type</th>
+                <td>{{ entity_type }}</td>
+            </tr>
+            <tr>
+                <th>Business Category</th>
+                <td>{{ business_category }}</td>
+            </tr>
+            <tr>
+                <th>PAN Number</th>
+                <td>{{ pan }}</td>
+            </tr>
+            <tr>
+                <th>GSTIN</th>
+                <td>{{ gstin }}</td>
+            </tr>
+            <tr>
+                <th>Expected Monthly Volume</th>
+                <td>{{ monthly_volume }}</td>
+            </tr>
+            <tr>
+                <th>Website URL</th>
+                <td>{{ website_url }}</td>
+            </tr>
+            <tr>
+                <th>Merchant ID</th>
+                <td>{{ merchant_id }}</td>
+            </tr>
+        </table>
+        
+        <p style="margin-top: 25px;"><strong>A.2 Authorized Signatory</strong></p>
+        <table class="data-table">
+            <tr>
+                <th>Name</th>
+                <td>{{ signatory_name }}</td>
+            </tr>
+            <tr>
+                <th>Email Address</th>
+                <td>{{ signatory_email }}</td>
+            </tr>
+            <tr>
+                <th>Identity Verification</th>
+                <td>Aadhaar: {{ aadhaar_masked }}</td>
+            </tr>
+        </table>
+        
+        <p style="margin-top: 25px;"><strong>A.3 Settlement Bank Account</strong></p>
+        <table class="data-table">
+            <tr>
+                <th>Account Holder Name</th>
+                <td>{{ account_holder_name }}</td>
+            </tr>
+            <tr>
+                <th>Account Number</th>
+                <td>{{ account_number_masked }}</td>
+            </tr>
+            <tr>
+                <th>IFSC Code</th>
+                <td>{{ ifsc }}</td>
+            </tr>
+        </table>
+    </div>
+    
+    <div class="signature-section">
+        <div class="execution-clause">
+            IN WITNESS WHEREOF, the Parties have executed this Agreement as of the date first written above.
+        </div>
+        
+        <table style="width: 100%; margin-top: 40px; border-collapse: collapse;">
+            <tr>
+                <td style="width: 48%; vertical-align: top; padding-right: 20px;">
+                    <strong>FOR AND ON BEHALF OF</strong><br>
+                    <strong>PAYU PAYMENTS PRIVATE LIMITED</strong>
+                    <div style="margin-top: 80px; border-top: 1px solid #000000; padding-top: 10px;">
+                        <span style="font-size: 10pt;">Authorized Signatory</span><br>
+                        <span style="font-size: 10pt;">Name: ___________________________</span><br>
+                        <span style="font-size: 10pt;">Designation: ___________________________</span><br>
+                        <span style="font-size: 10pt;">Date: {{ effective_date }}</span>
+                    </div>
+                </td>
+                <td style="width: 48%; vertical-align: top; padding-left: 20px;">
+                    <strong>FOR AND ON BEHALF OF</strong><br>
+                    <strong>{{ business_name | upper }}</strong>
+                    <div style="margin-top: 80px; border-top: 1px solid #000000; padding-top: 10px;">
+                        <span style="font-size: 10pt;">Authorized Signatory</span><br>
+                        <span style="font-size: 10pt;">Name: {{ signatory_name }}</span><br>
+                        <span style="font-size: 10pt;">Designation: ___________________________</span><br>
+                        <span style="font-size: 10pt;">Date: {{ effective_date }}</span>
+                    </div>
+                </td>
+            </tr>
+        </table>
+        
+        <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #cccccc; clear: both;">
+            <p><strong>WITNESSES:</strong></p>
+            <table style="width: 100%; margin-top: 20px; border-collapse: collapse;">
+                <tr>
+                    <td style="width: 48%; vertical-align: top; padding-right: 20px;">
+                        <p>1. Signature: ___________________________</p>
+                        <p style="margin-left: 20px;">Name: ___________________________</p>
+                        <p style="margin-left: 20px;">Address: ___________________________</p>
+                    </td>
+                    <td style="width: 48%; vertical-align: top; padding-left: 20px;">
+                        <p>2. Signature: ___________________________</p>
+                        <p style="margin-left: 20px;">Name: ___________________________</p>
+                        <p style="margin-left: 20px;">Address: ___________________________</p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    
+    <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #cccccc; font-size: 9pt; color: #666666; text-align: center; clear: both;">
+        <p>
+            Document generated electronically on {{ generation_timestamp }}<br>
+            Agreement Reference: {{ agreement_number }} | Merchant ID: {{ merchant_id }}
+        </p>
+        <p style="margin-top: 10px;">
+            [COMPANY_NAME] Payments Private Limited | CIN: [COMPANY_CIN]<br>
+            [COMPANY_ADDRESS]
+        </p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merchant Account Activation</title>
+</head>
+<body style="font-family: Verdana, Geneva, Tahoma, sans-serif; font-size: 13px; line-height: 1.5; color: #333333; margin: 0; padding: 0; background-color: #f4f4f4;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f4f4;">
+        <tr>
+            <td align="center" style="padding: 20px;">
+                <table width="640" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border: 1px solid #dddddd; font-family: Verdana, Geneva, Tahoma, sans-serif;">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background-color: #00a651; padding: 25px 30px;">
+                            <h1 style="font-family: Verdana, Geneva, Tahoma, sans-serif; color: #ffffff; margin: 0; font-size: 18px; font-weight: bold; letter-spacing: 0.5px;">[COMPANY_NAME] Payment Services</h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 30px; font-family: Verdana, Geneva, Tahoma, sans-serif;">
+                            <p style="font-family: Verdana, Geneva, Tahoma, sans-serif; font-size: 14px; margin-bottom: 20px;">Dear {{ signatory_name }},</p>
+                            
+                            <p style="font-family: Verdana, Geneva, Tahoma, sans-serif; margin-bottom: 20px; color: #444444; font-size: 13px;">
+                                We are pleased to inform you that your merchant account application has been 
+                                reviewed and approved. Your account is now active and ready for payment processing.
+                            </p>
+                            
+                            <!-- Account Information Section -->
+                            <p style="font-family: Verdana, Geneva, Tahoma, sans-serif; font-size: 13px; font-weight: bold; color: #00a651; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid #00a651;">Account Information</p>
+                            
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px; font-family: Verdana, Geneva, Tahoma, sans-serif;">
+                                <tr>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; background-color: #f0faf3; color: #555555; width: 35%; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">Merchant ID</td>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; color: #333333; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">{{ merchant_id }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; background-color: #f0faf3; color: #555555; width: 35%; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">Business Name</td>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; color: #333333; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">{{ business_name }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; background-color: #f0faf3; color: #555555; width: 35%; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">Business Category</td>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; color: #333333; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">{{ business_category }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; background-color: #f0faf3; color: #555555; width: 35%; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">PAN</td>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; color: #333333; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">{{ pan }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; background-color: #f0faf3; color: #555555; width: 35%; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">GSTIN</td>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; color: #333333; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">{{ gstin }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; background-color: #f0faf3; color: #555555; width: 35%; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">Account Status</td>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; color: #00a651; font-weight: bold; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">Active</td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Settlement Bank Account Section -->
+                            <p style="font-family: Verdana, Geneva, Tahoma, sans-serif; font-size: 13px; font-weight: bold; color: #00a651; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid #00a651;">Settlement Bank Account</p>
+                            
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px; font-family: Verdana, Geneva, Tahoma, sans-serif;">
+                                <tr>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; background-color: #f0faf3; color: #555555; width: 35%; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">Account Holder</td>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; color: #333333; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">{{ account_holder_name }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; background-color: #f0faf3; color: #555555; width: 35%; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">Account Number</td>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; color: #333333; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">{{ account_number_masked }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; background-color: #f0faf3; color: #555555; width: 35%; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">IFSC Code</td>
+                                    <td style="padding: 8px 10px; border: 1px solid #e0e0e0; color: #333333; font-size: 12px; font-family: Verdana, Geneva, Tahoma, sans-serif;">{{ ifsc }}</td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Next Steps Section -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f0faf3; border: 1px solid #c8e6c9; border-left: 4px solid #00a651; margin: 20px 0; font-family: Verdana, Geneva, Tahoma, sans-serif;">
+                                <tr>
+                                    <td style="padding: 20px;">
+                                        <p style="font-family: Verdana, Geneva, Tahoma, sans-serif; font-size: 13px; font-weight: bold; color: #00a651; margin: 0 0 15px 0;">Next Steps</p>
+                                        <table cellpadding="0" cellspacing="0" border="0" style="font-family: Verdana, Geneva, Tahoma, sans-serif;">
+                                            <tr><td style="padding: 4px 0; font-size: 12px; color: #444444; font-family: Verdana, Geneva, Tahoma, sans-serif;">1. Review the Merchant Services Agreement attached to this email.</td></tr>
+                                            <tr><td style="padding: 4px 0; font-size: 12px; color: #444444; font-family: Verdana, Geneva, Tahoma, sans-serif;">2. Access your merchant dashboard to configure payment settings.</td></tr>
+                                            <tr><td style="padding: 4px 0; font-size: 12px; color: #444444; font-family: Verdana, Geneva, Tahoma, sans-serif;">3. Complete the API integration using the documentation provided.</td></tr>
+                                            <tr><td style="padding: 4px 0; font-size: 12px; color: #444444; font-family: Verdana, Geneva, Tahoma, sans-serif;">4. Perform a test transaction to verify your integration.</td></tr>
+                                            <tr><td style="padding: 4px 0; font-size: 12px; color: #444444; font-family: Verdana, Geneva, Tahoma, sans-serif;">5. Contact our support team when you are ready to go live.</td></tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Notice -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fffbf0; border: 1px solid #e6d9a8; margin: 20px 0; font-family: Verdana, Geneva, Tahoma, sans-serif;">
+                                <tr>
+                                    <td style="padding: 15px; font-size: 12px; color: #5a5000; font-family: Verdana, Geneva, Tahoma, sans-serif;">
+                                        <strong>Important:</strong> Please retain the attached Merchant Services Agreement 
+                                        for your records. This document outlines the terms and conditions governing your 
+                                        use of [COMPANY_NAME] payment services.
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="font-family: Verdana, Geneva, Tahoma, sans-serif; margin-top: 25px; color: #444444; font-size: 13px;">
+                                Should you have any questions regarding your account or require assistance with 
+                                the integration process, please contact our merchant support team.
+                            </p>
+                            
+                            <p style="font-family: Verdana, Geneva, Tahoma, sans-serif; margin-top: 20px; font-size: 13px;">
+                                <span style="font-weight: bold; color: #333333;">Merchant Onboarding Team</span><br>
+                                <span style="color: #666666; font-size: 12px;">[COMPANY_NAME] Payments Private Limited</span>
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #2e7d32; padding: 20px 30px; font-size: 11px; color: #ffffff; font-family: Verdana, Geneva, Tahoma, sans-serif;">
+                            <p style="font-family: Verdana, Geneva, Tahoma, sans-serif; margin: 0 0 10px 0;">
+                                <strong>Merchant Support</strong><br>
+                                Email: <span style="color: #ffffff;">[SUPPORT_EMAIL]</span><br>
+                                Phone: [SUPPORT_PHONE] (Monday to Saturday, 9:00 AM to 6:00 PM IST)
+                            </p>
+                            
+                            <hr style="border: none; border-top: 1px solid #4caf50; margin: 15px 0;">
+                            
+                            <p style="font-family: Verdana, Geneva, Tahoma, sans-serif; font-size: 10px; color: #c8e6c9; margin: 0;">
+                                This is an automated communication from [COMPANY_NAME] Payments Private Limited. 
+                                Please do not reply to this email. For assistance, contact merchant support 
+                                using the details provided above.<br><br>
+                                [COMPANY_NAME] Payments Private Limited<br>
+                                [COMPANY_ADDRESS]<br>
+                                CIN: [COMPANY_CIN]
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+
