@@ -5,6 +5,7 @@ import base64
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from app.schema import AgentState, ActionItem, ActionCategory, ActionSeverity
+from app.utils.simulation import sim
 from playwright.async_api import async_playwright
 from app.utils.llm_factory import get_llm
 from app.utils.adverse_media import check_reputation
@@ -240,6 +241,182 @@ async def web_compliance_node(state: AgentState) -> Dict[str, Any]:
             "error_message": "Website URL missing",
         }
 
+    # ========== SIMULATION CHECKS ==========
+    # These allow testing specific failure scenarios in development mode
+    
+    # --- Force Success: Skip all web checks ---
+    if sim.should_skip("web"):
+        print("!!! FORCE SUCCESS: Skipping web compliance checks !!!")
+        return {
+            "is_website_compliant": True,
+            "compliance_issues": [],
+            "verification_notes": ["SIMULATION: Web compliance checks skipped (force_success)"],
+            "action_items": [],
+            "risk_score": 0.0,
+        }
+    
+    # --- Simulation: Website Unreachable ---
+    if sim.should_fail("web_unreachable"):
+        print("!!! SIMULATING WEBSITE UNREACHABLE !!!")
+        action_items.append(create_action_item(
+            category=ActionCategory.WEBSITE,
+            severity=ActionSeverity.BLOCKING,
+            title="Website is unreachable (Simulated)",
+            description="Could not connect to your website. The server may be down or misconfigured.",
+            suggestion="Verify your website is online and accessible. Check DNS settings and server status.",
+            field_to_update="business_details.website_url",
+            current_value=url,
+        ))
+        return {
+            "is_website_compliant": False,
+            "compliance_issues": ["Website unreachable (Simulated)"],
+            "verification_notes": ["SIMULATION: Website unreachable"],
+            "action_items": action_items,
+            "error_message": "Website unreachable (Simulated)",
+        }
+    
+    # --- Simulation: No SSL ---
+    if sim.should_fail("web_no_ssl"):
+        print("!!! SIMULATING NO SSL !!!")
+        action_items.append(create_action_item(
+            category=ActionCategory.WEBSITE,
+            severity=ActionSeverity.BLOCKING,
+            title="Enable HTTPS/SSL (Simulated)",
+            description="Your website is not using HTTPS, customer data is transmitted insecurely.",
+            suggestion="Install an SSL certificate. Most hosts offer free SSL via Let's Encrypt.",
+            field_to_update="business_details.website_url",
+            current_value=url,
+            required_format="URL must start with https://",
+        ))
+        return {
+            "is_website_compliant": False,
+            "compliance_issues": ["No SSL/HTTPS (Simulated)"],
+            "verification_notes": ["SIMULATION: SSL check failed"],
+            "action_items": action_items,
+            "risk_score": 0.7,
+        }
+    
+    # --- Simulation: Missing Refund Policy ---
+    if sim.should_fail("web_no_refund_policy"):
+        print("!!! SIMULATING NO REFUND POLICY !!!")
+        action_items.append(create_action_item(
+            category=ActionCategory.COMPLIANCE,
+            severity=ActionSeverity.BLOCKING,
+            title="Add refund policy page (Simulated)",
+            description="Your website does not have a visible refund/return policy.",
+            suggestion="Create a dedicated refund policy page accessible from your footer.",
+            field_to_update="business_details.website_url",
+            sample_content=POLICY_TEMPLATES.get("refund_policy", ""),
+        ))
+        return {
+            "is_website_compliant": False,
+            "compliance_issues": ["Missing refund policy (Simulated)"],
+            "verification_notes": ["SIMULATION: Refund policy missing"],
+            "action_items": action_items,
+            "risk_score": 0.5,
+        }
+    
+    # --- Simulation: Missing Privacy Policy ---
+    if sim.should_fail("web_no_privacy_policy"):
+        print("!!! SIMULATING NO PRIVACY POLICY !!!")
+        action_items.append(create_action_item(
+            category=ActionCategory.COMPLIANCE,
+            severity=ActionSeverity.BLOCKING,
+            title="Add privacy policy page (Simulated)",
+            description="Your website does not have a visible privacy policy.",
+            suggestion="Create a dedicated privacy policy page explaining how you handle customer data.",
+            field_to_update="business_details.website_url",
+            sample_content=POLICY_TEMPLATES.get("privacy_policy", ""),
+        ))
+        return {
+            "is_website_compliant": False,
+            "compliance_issues": ["Missing privacy policy (Simulated)"],
+            "verification_notes": ["SIMULATION: Privacy policy missing"],
+            "action_items": action_items,
+            "risk_score": 0.5,
+        }
+    
+    # --- Simulation: Missing Terms of Service ---
+    if sim.should_fail("web_no_terms"):
+        print("!!! SIMULATING NO TERMS OF SERVICE !!!")
+        action_items.append(create_action_item(
+            category=ActionCategory.COMPLIANCE,
+            severity=ActionSeverity.WARNING,
+            title="Add terms of service page (Simulated)",
+            description="Your website does not have visible terms of service.",
+            suggestion="Create a terms of service page outlining usage rules and limitations.",
+            field_to_update="business_details.website_url",
+            sample_content=POLICY_TEMPLATES.get("terms_of_service", ""),
+        ))
+        return {
+            "is_website_compliant": False,
+            "compliance_issues": ["Missing terms of service (Simulated)"],
+            "verification_notes": ["SIMULATION: Terms of service missing"],
+            "action_items": action_items,
+            "risk_score": 0.3,
+        }
+    
+    # --- Simulation: Prohibited Content ---
+    if sim.should_fail("web_prohibited_content"):
+        print("!!! SIMULATING PROHIBITED CONTENT !!!")
+        action_items.append(create_action_item(
+            category=ActionCategory.COMPLIANCE,
+            severity=ActionSeverity.BLOCKING,
+            title="Remove prohibited content (Simulated)",
+            description="Your website contains content related to prohibited categories (gambling, adult, weapons, etc.).",
+            suggestion="Remove all references to prohibited categories from your website.",
+            field_to_update="business_details.website_url",
+            current_value=url,
+        ))
+        return {
+            "is_website_compliant": False,
+            "compliance_issues": ["Prohibited content found (Simulated)"],
+            "verification_notes": ["SIMULATION: Prohibited content detected"],
+            "action_items": action_items,
+            "risk_score": 1.0,
+        }
+    
+    # --- Simulation: Domain Too New ---
+    if sim.should_fail("web_domain_new"):
+        print("!!! SIMULATING NEW DOMAIN !!!")
+        action_items.append(create_action_item(
+            category=ActionCategory.WEBSITE,
+            severity=ActionSeverity.WARNING,
+            title="Verify domain ownership (Simulated)",
+            description="Your domain is very new (less than 30 days old), which increases risk.",
+            suggestion="Provide additional business verification documents to compensate for new domain.",
+            field_to_update="business_details.website_url",
+            current_value=url,
+        ))
+        return {
+            "is_website_compliant": False,
+            "compliance_issues": ["Domain too new (Simulated)"],
+            "verification_notes": ["SIMULATION: Domain age < 30 days"],
+            "action_items": action_items,
+            "risk_score": 0.5,
+        }
+    
+    # --- Simulation: Adverse Media ---
+    if sim.should_fail("web_adverse_media"):
+        print("!!! SIMULATING ADVERSE MEDIA !!!")
+        action_items.append(create_action_item(
+            category=ActionCategory.COMPLIANCE,
+            severity=ActionSeverity.WARNING,
+            title="Address adverse media findings (Simulated)",
+            description="Found negative news or reviews related to your business.",
+            suggestion="Review the findings and provide clarification if these are false positives.",
+            field_to_update="business_details.website_url",
+        ))
+        return {
+            "is_website_compliant": False,
+            "compliance_issues": ["Adverse media found (Simulated)"],
+            "verification_notes": ["SIMULATION: Adverse media detected"],
+            "action_items": action_items,
+            "risk_score": 0.6,
+        }
+    
+    # ========== END SIMULATION CHECKS ==========
+
     # 1. SSL Check
     if not url.startswith("https://"):
         issues.append("Website is not using HTTPS (Insecure).")
@@ -407,7 +584,7 @@ async def web_compliance_node(state: AgentState) -> Dict[str, Any]:
                 severity=ActionSeverity.BLOCKING,
                 title="Ensure website is accessible",
                 description=f"Could not access your website. Error: {str(e)}",
-                suggestion="Verify your website is online and accessible. Check for server issues, DNS configuration, or firewall settings.",
+                suggestion="Verify your website is online and accessible. Check for server issues, DNS configuration, or firewall settings. If the URL is incorrect, provide the correct one.",
                 field_to_update="business_details.website_url",
                 current_value=url,
             ))

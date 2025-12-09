@@ -44,19 +44,13 @@ class ActionItem(BaseModel):
     title: str                              # Short title: "Upload clearer KYC document"
     description: str                        # What went wrong
     suggestion: str                         # How to fix it
-    field_to_update: Optional[str] = None   # Which field needs update (e.g., "documents_path")
+    field_to_update: Optional[str] = None   # Hint: which field might need update
     current_value: Optional[str] = None     # Current value that failed
     required_format: Optional[str] = None   # Expected format/constraints
     sample_content: Optional[str] = None    # For policies: draft template text
     created_at: datetime = Field(default_factory=datetime.now)
     resolved: bool = False
     resolved_at: Optional[datetime] = None
-
-    def mark_resolved(self) -> "ActionItem":
-        """Returns a new ActionItem marked as resolved (immutable pattern)."""
-        return ActionItem(
-            **{**self.model_dump(), "resolved": True, "resolved_at": datetime.now()}
-        )
 
 
 # Pydantic Data Models (for validation)
@@ -91,9 +85,53 @@ class MerchantApplication(BaseModel):
     documents_path: Optional[str] = None  # Path to documents for OCR
 
 
+class PartialBusinessDetails(BaseModel):
+    """Partial business details for updates."""
+    pan: Optional[str] = None
+    entity_type: Optional[str] = None
+    category: Optional[str] = None
+    gstin: Optional[str] = None
+    monthly_volume: Optional[str] = None
+    website_url: Optional[str] = None
+
+
+class PartialBankDetails(BaseModel):
+    """Partial bank details for updates."""
+    account_number: Optional[str] = None
+    ifsc: Optional[str] = None
+    account_holder_name: Optional[str] = None
+
+
+class PartialSignatoryDetails(BaseModel):
+    """Partial signatory details for updates."""
+    name: Optional[str] = None
+    email: Optional[str] = None
+    aadhaar: Optional[str] = None
+
+
 class ResumePayload(BaseModel):
-    updated_data: Optional[Dict[str, Any]] = None
-    resolved_items: Optional[List[str]] = None  # List of action_item IDs that were resolved
+    """
+    Simple payload for resuming onboarding.
+    
+    Just send any updated fields in the same structure as MerchantApplication.
+    Fields not provided are kept from existing state.
+    
+    Example - just re-verify (no data change):
+        {}
+    
+    Example - update document:
+        {"documents_path": "/uploads/new_doc.pdf"}
+    
+    Example - update website URL:
+        {"business_details": {"website_url": "https://new-site.com"}}
+    """
+    # Partial application data - same structure as MerchantApplication
+    business_details: Optional[PartialBusinessDetails] = None
+    bank_details: Optional[PartialBankDetails] = None
+    signatory_details: Optional[PartialSignatoryDetails] = None
+    documents_path: Optional[str] = None
+    
+    # Optional context
     user_message: Optional[str] = None
 
 

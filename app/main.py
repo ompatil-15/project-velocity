@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, UploadFile, 
 from fastapi.responses import FileResponse
 from app.schema import MerchantApplication, ResumePayload, JobStatus
 from app.graph import build_graph
+from typing import List
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from fastapi.staticfiles import StaticFiles
 from app.utils import job_store
@@ -200,8 +201,7 @@ async def start_onboarding(
     Returns immediately with a thread_id for status polling.
     The actual workflow runs in the background.
     """
-    print(f"Starting onboarding for: {application.business_details.entity_type}")
-
+    print(f"Starting onboarding for merchant: {application.merchant_id}")
     # Generate thread ID
     thread_id = str(uuid.uuid4())
     
@@ -331,8 +331,6 @@ async def get_action_items(
     """
     Get action items for a specific onboarding session.
     
-    This is a dedicated endpoint following Single Responsibility Principle (SRP).
-    
     Returns:
         - action_items: List of action items with full details
         - summary: Count of blocking/warning items
@@ -344,10 +342,12 @@ async def get_action_items(
     if action_items is None:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    # Categorize items
+    # Categorize items by severity
     blocking = [i for i in action_items if i.get("severity") == "BLOCKING" and not i.get("resolved")]
     warnings = [i for i in action_items if i.get("severity") == "WARNING" and not i.get("resolved")]
     resolved = [i for i in action_items if i.get("resolved")]
+    
+    pending = blocking + warnings
     
     # Build response
     response = {
@@ -357,28 +357,39 @@ async def get_action_items(
             "blocking_count": len(blocking),
             "warning_count": len(warnings),
             "resolved_count": len(resolved),
-            "total_pending": len(blocking) + len(warnings),
+            "total_pending": len(pending),
         },
     }
     
-    # Add resume hint if there are pending items
-    if blocking or warnings:
-        pending_ids = [i.get("id") for i in blocking + warnings if i.get("id")]
+    # Add resume hints - simple: just send partial data in same structure as MerchantApplication
+    if pending:
+        fields_to_update = list(set(
+            i.get("field_to_update") for i in pending if i.get("field_to_update")
+        ))
+        
         response["resume_hint"] = {
-            "description": "After resolving issues, call POST /onboard/{thread_id}/resume with:",
-            "example_payload": {
-                "resolved_items": pending_ids[:3] + (["..."] if len(pending_ids) > 3 else []),
-                "updated_data": {
-                    "documents_path": "/path/to/new/document.pdf",
-                    "business_details": {
-                        "website_url": "https://updated-website.com"
-                    }
-                },
-                "user_message": "I have resolved the issues"
+            "description": "Send any updated fields in the same structure as MerchantApplication. Empty payload to just re-verify.",
+            "fields_with_issues": fields_to_update,
+            "examples": {
+                "just_reverify": {},
+                "update_document": {"documents_path": "/uploads/new_doc.pdf"},
+                "update_website": {"business_details": {"website_url": "https://new-site.com"}},
+                "update_bank": {"bank_details": {"account_holder_name": "Corrected Name"}},
             }
         }
     
     return response
+
+
+def deep_merge(base: dict, updates: dict) -> dict:
+    """Deep merge updates into base dict."""
+    result = base.copy()
+    for key, value in updates.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = deep_merge(result[key], value)
+        elif value is not None:  # Only update if value is not None
+            result[key] = value
+    return result
 
 
 @app.post("/onboard/{thread_id}/resume")
@@ -390,10 +401,15 @@ async def resume_onboarding(
     """
     Resumes the onboarding process after merchant intervention.
     
-    Accepts:
-        - resolved_items: List of action item IDs that were resolved
-        - updated_data: Updated application data (merged with existing)
-        - user_message: Optional message from merchant
+    Simple approach:
+    - Send partial application data in same structure as MerchantApplication
+    - Fields not provided are kept from existing state
+    - Empty payload = just re-verify (merchant fixed externally)
+    
+    Examples:
+        - Just re-verify: {}
+        - Update document: {"documents_path": "/uploads/new_doc.pdf"}
+        - Update website: {"business_details": {"website_url": "https://new-site.com"}}
     """
     try:
         config = {"configurable": {"thread_id": thread_id}}
@@ -402,30 +418,30 @@ async def resume_onboarding(
         if not current_state:
             raise HTTPException(status_code=404, detail="Session not found")
 
-        # 1. Mark resolved items
-        if payload.resolved_items:
-            await job_store.mark_items_resolved(thread_id, payload.resolved_items)
-            print(f"Marked {len(payload.resolved_items)} items as resolved")
-
-        # 2. Update State with new data (if any)
-        if payload.updated_data:
-            current_app_data = current_state.values.get("application_data", {})
-            if isinstance(current_app_data, dict):
-                # Deep merge for nested dicts like business_details
-                for key, value in payload.updated_data.items():
-                    if key in current_app_data and isinstance(current_app_data[key], dict) and isinstance(value, dict):
-                        current_app_data[key].update(value)
-                    else:
-                        current_app_data[key] = value
-
-            await agent_app.aupdate_state(
-                config, {"application_data": current_app_data}
-            )
+        # Get current application data
+        current_app_data = current_state.values.get("application_data", {})
+        
+        # Build updates from payload
+        updates = {}
+        if payload.documents_path:
+            updates["documents_path"] = payload.documents_path
+        if payload.business_details:
+            updates["business_details"] = payload.business_details.model_dump(exclude_none=True)
+        if payload.bank_details:
+            updates["bank_details"] = payload.bank_details.model_dump(exclude_none=True)
+        if payload.signatory_details:
+            updates["signatory_details"] = payload.signatory_details.model_dump(exclude_none=True)
+        
+        # Deep merge updates into current data
+        if updates:
+            merged_data = deep_merge(current_app_data, updates)
+            await agent_app.aupdate_state(config, {"application_data": merged_data})
+            print(f"Updated application data: {list(updates.keys())}")
 
         # Update job status to processing
         await job_store.update_job(thread_id, status=JobStatus.PROCESSING)
 
-        # 3. Resume execution in background
+        # Resume execution in background
         async def resume_workflow():
             try:
                 final_state = await agent_app.ainvoke(None, config=config)
@@ -434,7 +450,7 @@ async def resume_onboarding(
                 new_action_items = final_state.get("action_items", [])
                 
                 # Merge with existing (keeping resolved status from DB)
-                existing_items = await job_store.get_action_items(thread_id, include_resolved=True)
+                existing_items = await job_store.get_action_items(thread_id, include_resolved=True) or []
                 
                 # Only add truly new items (by ID)
                 existing_ids = {i.get("id") for i in existing_items if i.get("id")}
@@ -446,8 +462,8 @@ async def resume_onboarding(
                 # Check if still interrupted
                 new_state = await agent_app.aget_state(config)
                 
-                # Get final action items count
-                final_items = await job_store.get_action_items(thread_id, include_resolved=True)
+                # Get final action items
+                final_items = await job_store.get_action_items(thread_id, include_resolved=True) or []
                 
                 if new_state.next:
                     await job_store.update_job(
@@ -491,7 +507,8 @@ async def resume_onboarding(
             "status": "ACCEPTED",
             "message": "Resume request accepted. Use /onboard/{thread_id}/status to poll for updates.",
             "thread_id": thread_id,
-            "resolved_items_count": len(payload.resolved_items) if payload.resolved_items else 0,
+            "data_updated": bool(updates),
+            "fields_updated": list(updates.keys()) if updates else [],
         }
 
     except HTTPException as e:
@@ -520,6 +537,92 @@ async def list_jobs():
     """List all jobs from SQLite."""
     jobs = await job_store.list_jobs()
     return {"jobs": jobs}
+
+
+# --- Simulation Control (No Restart Needed) ---
+
+from app.utils.simulation import sim
+
+
+@app.get("/debug/simulate")
+async def get_simulations():
+    """
+    Get current simulation flags and behavior.
+    Shows which failures are being simulated and what each node will do.
+    """
+    if not sim.is_dev_mode():
+        raise HTTPException(status_code=403, detail="Simulations only available in development mode")
+    
+    import os
+    real_checks_enabled = os.getenv("SIMULATE_REAL_CHECKS", "false").lower() == "true"
+    
+    return {
+        "environment": "development",
+        "real_checks_enabled": real_checks_enabled,
+        "behavior": {
+            "doc": "MOCK_SUCCESS" if sim.should_skip("doc") else ("SIMULATE_FAILURE" if any(sim.should_fail(f) for f in ["doc_blurry", "doc_missing", "doc_invalid"]) else "REAL_CHECK"),
+            "bank": "MOCK_SUCCESS" if sim.should_skip("bank") else ("SIMULATE_FAILURE" if any(sim.should_fail(f) for f in ["bank_name_mismatch", "bank_invalid_ifsc", "bank_account_closed"]) else "REAL_CHECK"),
+            "web": "MOCK_SUCCESS" if sim.should_skip("web") else ("SIMULATE_FAILURE" if any(sim.should_fail(f) for f in ["web_unreachable", "web_no_ssl", "web_no_refund_policy", "web_no_privacy_policy", "web_no_terms", "web_prohibited_content", "web_domain_new", "web_adverse_media"]) else "REAL_CHECK"),
+            "input": "MOCK_SUCCESS" if sim.should_skip("input") else ("SIMULATE_FAILURE" if any(sim.should_fail(f) for f in ["input_invalid_pan", "input_invalid_gstin"]) else "REAL_CHECK"),
+        },
+        "active_failures": sim.get_active_simulations(),
+        "all_flags": sim.get_all_flags(),
+        "available_scenarios": sim.ALL_SCENARIOS,
+        "hint": {
+            "mock_success": "Default in dev mode - all checks pass",
+            "simulate_failure": "Set specific flags to test error UI",
+            "real_check": "Set SIMULATE_REAL_CHECKS=true to run actual checks",
+        }
+    }
+
+
+@app.post("/debug/simulate")
+async def set_simulations(flags: dict):
+    """
+    Set simulation flags at runtime (no restart needed).
+    
+    Example:
+        POST /debug/simulate
+        {"doc_blurry": true, "web_no_refund_policy": true}
+    
+    To disable a flag:
+        {"doc_blurry": false}
+    """
+    if not sim.is_dev_mode():
+        raise HTTPException(status_code=403, detail="Simulations only available in development mode")
+    
+    # Validate flags
+    invalid = [k for k in flags.keys() if k not in sim.ALL_SCENARIOS]
+    if invalid:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid scenarios: {invalid}. Available: {sim.ALL_SCENARIOS}"
+        )
+    
+    # Set flags
+    updated = sim.set_flags(flags)
+    
+    return {
+        "updated": updated,
+        "active": sim.get_active_simulations(),
+    }
+
+
+@app.delete("/debug/simulate")
+async def reset_simulations():
+    """
+    Reset all runtime simulation flags.
+    Reverts to environment variable settings.
+    """
+    if not sim.is_dev_mode():
+        raise HTTPException(status_code=403, detail="Simulations only available in development mode")
+    
+    sim.reset_flags()
+    
+    return {
+        "message": "All runtime flags reset. Now using environment variables.",
+        "active": sim.get_active_simulations(),
+    }
 
 
 if __name__ == "__main__":

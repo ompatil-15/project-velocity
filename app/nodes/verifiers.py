@@ -1,6 +1,7 @@
 from typing import Any, Dict, List
 import os
 from app.schema import AgentState, ActionItem, ActionCategory, ActionSeverity
+from app.utils.simulation import sim
 from langchain_docling import DoclingLoader
 
 
@@ -40,22 +41,74 @@ def doc_intelligence_node(state: AgentState) -> Dict[str, Any]:
     action_items: List[Dict[str, Any]] = []
     doc_path = state["application_data"].get("documents_path")
 
-    # 1. Simulation Check: Force Failure Flag
-    if os.getenv("SIMULATE_DOC_FAILURE", "false").lower() == "true":
-        print("!!! SIMULATING DOCUMENT FAILURE !!!")
+    # --- Force Success: Skip document checks ---
+    if sim.should_skip("doc"):
+        print("!!! FORCE SUCCESS: Skipping document checks !!!")
+        return {
+            "is_doc_verified": True,
+            "verification_notes": ["SIMULATION: Document checks skipped (force_success)"],
+            "action_items": [],
+        }
+    
+    # --- Simulation: Document Blurry/OCR Failure ---
+    if sim.should_fail("doc_blurry") or sim.should_fail_doc():
+        print("!!! SIMULATING DOCUMENT BLURRY !!!")
         action_items.append(create_action_item(
             category=ActionCategory.DOCUMENT,
             severity=ActionSeverity.BLOCKING,
-            title="Document verification failed (Simulated)",
-            description="The document verification was force-failed for testing purposes.",
-            suggestion="This is a simulated failure. Set SIMULATE_DOC_FAILURE=false to proceed normally.",
+            title="Upload clearer KYC document (Simulated)",
+            description="The document is blurry or has low resolution. OCR could not extract text reliably.",
+            suggestion="Upload a high-resolution scan (300+ DPI). Ensure document is flat, well-lit, and all text is readable.",
             field_to_update="documents_path",
             current_value=doc_path,
+            required_format="PDF, PNG, or JPG. Minimum 300 DPI. No glare or shadows.",
         ))
         return {
             "is_doc_verified": False,
-            "error_message": "Simulated Verification Failure: Unable to verify document authenticity.",
-            "verification_notes": ["SIMULATION: Force failed document check."],
+            "error_message": "Document OCR failed: Image too blurry (Simulated)",
+            "verification_notes": ["SIMULATION: Document blurry/OCR failure"],
+            "missing_artifacts": ["Clear KYC Document"],
+            "action_items": action_items,
+        }
+    
+    # --- Simulation: Document Missing ---
+    if sim.should_fail("doc_missing"):
+        print("!!! SIMULATING DOCUMENT MISSING !!!")
+        action_items.append(create_action_item(
+            category=ActionCategory.DOCUMENT,
+            severity=ActionSeverity.BLOCKING,
+            title="Upload KYC document (Simulated)",
+            description="No document was found at the specified path.",
+            suggestion="Please upload your KYC document (PAN card, Aadhaar, or government ID).",
+            field_to_update="documents_path",
+            current_value=doc_path,
+            required_format="PDF, PNG, or JPG. Maximum 5MB.",
+        ))
+        return {
+            "is_doc_verified": False,
+            "error_message": "Document not found (Simulated)",
+            "verification_notes": ["SIMULATION: Document file missing"],
+            "missing_artifacts": ["KYC Document"],
+            "action_items": action_items,
+        }
+    
+    # --- Simulation: Document Invalid (missing required fields) ---
+    if sim.should_fail("doc_invalid"):
+        print("!!! SIMULATING DOCUMENT INVALID !!!")
+        action_items.append(create_action_item(
+            category=ActionCategory.DOCUMENT,
+            severity=ActionSeverity.BLOCKING,
+            title="Upload valid KYC document (Simulated)",
+            description="The document is missing required fields like name, date of birth, or ID number.",
+            suggestion="Ensure you upload a complete government-issued ID with all information visible.",
+            field_to_update="documents_path",
+            current_value=doc_path,
+            required_format="Complete PAN card or Aadhaar with name, DOB, and ID number visible.",
+        ))
+        return {
+            "is_doc_verified": False,
+            "error_message": "Document missing required fields (Simulated)",
+            "verification_notes": ["SIMULATION: Document invalid/incomplete"],
             "missing_artifacts": ["Valid KYC Document"],
             "action_items": action_items,
         }
@@ -165,25 +218,76 @@ def bank_verifier_node(state: AgentState) -> Dict[str, Any]:
     account_number = bank_details.get("account_number", "")
     ifsc = bank_details.get("ifsc", "")
 
-    # Failure testing: if name is "FAIL_ME", we simulate failure
-    if holder_name == "FAIL_ME":
+    # --- Force Success: Skip bank checks ---
+    if sim.should_skip("bank"):
+        print("!!! FORCE SUCCESS: Skipping bank checks !!!")
+        return {
+            "is_bank_verified": True,
+            "verification_notes": ["SIMULATION: Bank checks skipped (force_success)"],
+            "action_items": [],
+        }
+    
+    # --- Simulation: Bank Name Mismatch ---
+    if sim.should_fail("bank_name_mismatch") or holder_name == "FAIL_ME":
+        print("!!! SIMULATING BANK NAME MISMATCH !!!")
         action_items.append(create_action_item(
             category=ActionCategory.BANK,
             severity=ActionSeverity.BLOCKING,
             title="Correct bank account holder name",
-            description="The name on the bank account does not match the business/signatory name provided in the application.",
-            suggestion="Please verify that the account holder name matches exactly with your business registration or signatory details. Common issues include spelling differences, missing middle names, or abbreviated names.",
+            description="The name on the bank account does not match the business/signatory name (Simulated).",
+            suggestion="Ensure the account holder name matches exactly with your business registration. Common issues: spelling differences, missing middle names, abbreviated names.",
             field_to_update="bank_details.account_holder_name",
             current_value=holder_name,
             required_format="Full name as it appears on bank account statement.",
         ))
         return {
             "is_bank_verified": False,
-            "error_message": "Penny drop failed: Name mismatch.",
+            "error_message": "Penny drop failed: Name mismatch (Simulated)",
+            "verification_notes": ["SIMULATION: Bank name mismatch"],
+            "action_items": action_items,
+        }
+    
+    # --- Simulation: Invalid IFSC ---
+    if sim.should_fail("bank_invalid_ifsc"):
+        print("!!! SIMULATING INVALID IFSC !!!")
+        action_items.append(create_action_item(
+            category=ActionCategory.BANK,
+            severity=ActionSeverity.BLOCKING,
+            title="Correct IFSC code",
+            description="The IFSC code is invalid or does not match any bank branch (Simulated).",
+            suggestion="Verify the IFSC code from your cheque book or bank statement. Format: 4 letter bank code + 0 + 6 character branch code.",
+            field_to_update="bank_details.ifsc",
+            current_value=ifsc,
+            required_format="11 characters: AAAA0BBBBBB (e.g., HDFC0001234)",
+        ))
+        return {
+            "is_bank_verified": False,
+            "error_message": "Invalid IFSC code (Simulated)",
+            "verification_notes": ["SIMULATION: Invalid IFSC code"],
+            "action_items": action_items,
+        }
+    
+    # --- Simulation: Account Closed ---
+    if sim.should_fail("bank_account_closed"):
+        print("!!! SIMULATING ACCOUNT CLOSED !!!")
+        action_items.append(create_action_item(
+            category=ActionCategory.BANK,
+            severity=ActionSeverity.BLOCKING,
+            title="Provide active bank account",
+            description="The bank account appears to be closed or inactive (Simulated).",
+            suggestion="Please provide details of an active bank account. If this account is active, contact your bank to verify its status.",
+            field_to_update="bank_details.account_number",
+            current_value=account_number,
+            required_format="Active savings or current account number.",
+        ))
+        return {
+            "is_bank_verified": False,
+            "error_message": "Bank account is closed/inactive (Simulated)",
+            "verification_notes": ["SIMULATION: Account closed/inactive"],
             "action_items": action_items,
         }
 
-    # Check for missing bank details
+    # --- Real validation: Check for missing bank details ---
     if not account_number or not ifsc:
         action_items.append(create_action_item(
             category=ActionCategory.BANK,
