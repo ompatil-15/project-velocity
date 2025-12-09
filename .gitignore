@@ -216,4 +216,5 @@ __marimo__/
 
 # App specific
 evidence/
+uploads/
 db/checkpoints.sqlite

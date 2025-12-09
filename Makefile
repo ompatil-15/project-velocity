@@ -1,7 +1,10 @@
-.PHONY: server
+.PHONY: server db
 
 server:
 	source venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 db:
 	sqlite3 db/checkpoints.sqlite
+
+graph: 
+	python3 tests/visualize_graph.py

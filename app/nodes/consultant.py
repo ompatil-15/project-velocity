@@ -1,8 +1,8 @@
-from typing import Any, Dict
-from app.schema import AgentState
-from langchain_core.messages import SystemMessage, HumanMessage
+from typing import Any, Dict, List
+from app.schema import AgentState, ActionItem, ActionCategory, ActionSeverity
+from langchain_core.messages import HumanMessage
 import os
-from app.templates import get_template
+import json
 
 from dotenv import load_dotenv
 from app.utils.llm_factory import get_llm
@@ -15,72 +15,148 @@ load_dotenv()
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
 
 
+def enrich_action_items_with_llm(
+    action_items: List[Dict[str, Any]], 
+    state: AgentState
+) -> List[Dict[str, Any]]:
+    """
+    Use LLM to enrich action item suggestions with merchant-specific context.
+    Only runs in production mode.
+    """
+    if not action_items:
+        return action_items
+    
+    try:
+        llm = get_llm()
+        
+        # Build context from merchant data
+        merchant_context = {
+            "business_type": state["application_data"]["business_details"].get("entity_type", "Unknown"),
+            "category": state["application_data"]["business_details"].get("category", "Unknown"),
+            "website": state["application_data"]["business_details"].get("website_url", "Not provided"),
+            "merchant_name": state["application_data"]["bank_details"].get("account_holder_name", "Merchant"),
+        }
+        
+        # Prepare action items for LLM
+        items_summary = "\n".join([
+            f"- {item['title']}: {item['description']}"
+            for item in action_items
+        ])
+        
+        prompt = f"""You are a compliance consultant helping a merchant complete their onboarding.
+
+MERCHANT CONTEXT:
+- Business Type: {merchant_context['business_type']}
+- Category: {merchant_context['category']}
+- Website: {merchant_context['website']}
+- Name: {merchant_context['merchant_name']}
+
+CURRENT ACTION ITEMS:
+{items_summary}
+
+For each action item, provide a more personalized and specific suggestion based on the merchant's context.
+Return ONLY a JSON array with the same number of items, each containing:
+- "id": the original item ID (if available)
+- "enhanced_suggestion": a more specific, personalized suggestion
+
+Example output:
+[
+  {{"id": "abc123", "enhanced_suggestion": "Since you're in e-commerce, add a clear 30-day return policy with easy RMA process..."}}
+]
+
+Output ONLY valid JSON, no additional text."""
+
+        response = llm.invoke([HumanMessage(content=prompt)])
+        
+        # Parse LLM response
+        try:
+            # Find JSON in response
+            content = response.content
+            start = content.find('[')
+            end = content.rfind(']') + 1
+            if start != -1 and end > start:
+                enhancements = json.loads(content[start:end])
+                
+                # Merge enhancements back into action items
+                enhancement_map = {e.get("id", ""): e.get("enhanced_suggestion", "") for e in enhancements}
+                
+                for i, item in enumerate(action_items):
+                    item_id = item.get("id", "")
+                    if item_id in enhancement_map and enhancement_map[item_id]:
+                        # Append LLM suggestion to existing suggestion
+                        item["suggestion"] = f"{item['suggestion']}\n\n**Personalized Recommendation:** {enhancement_map[item_id]}"
+                    elif i < len(enhancements) and enhancements[i].get("enhanced_suggestion"):
+                        # Fallback to index-based matching
+                        item["suggestion"] = f"{item['suggestion']}\n\n**Personalized Recommendation:** {enhancements[i]['enhanced_suggestion']}"
+        except json.JSONDecodeError:
+            print(f"Could not parse LLM response as JSON: {response.content[:200]}")
+            
+    except Exception as e:
+        print(f"LLM enrichment failed: {e}")
+        # Return original items if enrichment fails
+    
+    return action_items
+
+
 def consultant_fixer_node(state: AgentState) -> Dict[str, Any]:
     """
     The 'Consultant Mode' node.
-    Analyzes errors (bank failure, compliance issues) and suggests fixes.
+    Consolidates action items from previous nodes and optionally enriches with LLM.
     """
     print("--- [Node] Consultant Fixer ---")
 
     error = state.get("error_message")
     issues = state.get("compliance_issues", [])
-
+    
+    # Collect existing action items from state (from previous nodes)
+    existing_action_items = state.get("action_items", [])
+    
+    # Ensure it's a list
+    if not isinstance(existing_action_items, list):
+        existing_action_items = []
+    
+    # Make a copy to avoid mutating state
+    action_items = [item.copy() if isinstance(item, dict) else item for item in existing_action_items]
+    
+    print(f"Consultant received {len(action_items)} action items")
+    
+    # Count blocking vs warning items
+    blocking_count = sum(1 for item in action_items if item.get("severity") == "BLOCKING")
+    warning_count = sum(1 for item in action_items if item.get("severity") == "WARNING")
+    
+    # Generate correction plan from action items
     correction_plan = []
-
-    # Logic to populate structured plan
-    # Logic to populate structured plan
-    if ENVIRONMENT == "production":
-        try:
-            # Factory determines provider/model/key from environment variables
-            llm = get_llm()
-
-            prompt = (
-                f"You are a compliance consultant for a merchant onboarding system.\n"
-                f"The merchant has encountered errors: {error}\n"
-                f"Compliance Issues: {issues}\n"
-                f"Provide a concise, actionable plan (3-4 bullet points) for the merchant to fix these issues.\n"
-                f"Do not include introductory text, just the plan items."
-            )
-            response = llm.invoke([HumanMessage(content=prompt)])
-            # Simple parsing: split by newlines and clean up
-            lines = [
-                line.strip().lstrip("-* ")
-                for line in response.content.split("\n")
-                if line.strip()
-            ]
-            correction_plan.extend(lines)
-        except Exception as e:
-            correction_plan.append(f"LLM Error ({type(e).__name__}): {str(e)}")
-            correction_plan.append("Switching to Simulator fallback.")
-
-    # FALLBACK / SIMULATOR MODE
-    if not correction_plan:  # Use simulator if LLM failed or mode is SIMULATOR
-        if error:
-            print(f"Consultant detected critical error: {error}")
-            correction_plan.append(f"Action: Send email to user regarding {error}")
-
-        if issues:
-            print(f"Consultant detected compliance issues: {issues}")
-            for issue in issues:
-                # Simple keyword match to suggest template
-                # Extract basic terms
-                company = state["application_data"]["business_details"]["entity_type"]
-                domain = "example.com"  # Simplification
-
-                suggestion = f"Suggestion: Update website to include {issue}"
-                correction_plan.append(suggestion)
-
-                # Generate the artifact content
-                if "Refund" in issue or "Privacy" in issue:
-                    template = get_template(issue, company, domain)
-                    correction_plan.append(f"DRAFT CONTENT for {issue}:\n{template}")
-
-    # Update state with richer data
+    for item in action_items:
+        if isinstance(item, dict):
+            correction_plan.append(f"[{item.get('severity', 'INFO')}] {item.get('title', 'Unknown')}: {item.get('suggestion', '')[:100]}...")
+    
+    # Enrich with LLM in production mode
+    if ENVIRONMENT == "production" and action_items:
+        print("Enriching action items with LLM...")
+        action_items = enrich_action_items_with_llm(action_items, state)
+    
+    # Sort action items: BLOCKING first, then WARNING
+    action_items.sort(key=lambda x: (
+        0 if x.get("severity") == "BLOCKING" else 1,
+        x.get("created_at", "")
+    ))
+    
+    # Build summary for verification notes
+    summary = []
+    if blocking_count > 0:
+        summary.append(f"{blocking_count} blocking issue(s) require attention")
+    if warning_count > 0:
+        summary.append(f"{warning_count} warning(s) for review")
+    if error:
+        summary.append(f"Error: {error}")
+    
+    # Calculate risk score based on issues
+    risk_score = min(1.0, 0.3 + (blocking_count * 0.2) + (warning_count * 0.1))
+    
     return {
+        "action_items": action_items,
         "consultant_plan": correction_plan,
-        "verification_notes": [
-            f"Consultant Intervention: {p}" for p in correction_plan
-        ],
+        "verification_notes": summary if summary else ["Consultant review completed"],
         "status": "NEEDS_REVIEW",
-        "risk_score": 0.8 if issues else 0.5,  # High risk if issues found
+        "risk_score": risk_score,
     }

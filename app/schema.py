@@ -1,8 +1,10 @@
 from typing import TypedDict, Annotated, List, Dict, Any, Optional, Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from langgraph.graph.message import add_messages
 from langchain_core.messages import BaseMessage
 from enum import Enum
+from datetime import datetime
+import uuid
 
 
 # --- Job Status Tracking ---
@@ -14,6 +16,47 @@ class JobStatus(str, Enum):
     NEEDS_REVIEW = "NEEDS_REVIEW"  # Waiting for merchant intervention
     COMPLETED = "COMPLETED"      # Successfully completed
     FAILED = "FAILED"            # Failed with error
+
+
+class ActionCategory(str, Enum):
+    """Category of action item."""
+    DOCUMENT = "DOCUMENT"
+    BANK = "BANK"
+    COMPLIANCE = "COMPLIANCE"
+    WEBSITE = "WEBSITE"
+    DATA = "DATA"
+
+
+class ActionSeverity(str, Enum):
+    """Severity of action item."""
+    BLOCKING = "BLOCKING"  # Must be resolved to proceed
+    WARNING = "WARNING"    # Recommended but not required
+
+
+class ActionItem(BaseModel):
+    """
+    Immutable action item for merchant to resolve.
+    Once created, can only be marked as resolved.
+    """
+    id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
+    category: ActionCategory
+    severity: ActionSeverity
+    title: str                              # Short title: "Upload clearer KYC document"
+    description: str                        # What went wrong
+    suggestion: str                         # How to fix it
+    field_to_update: Optional[str] = None   # Which field needs update (e.g., "documents_path")
+    current_value: Optional[str] = None     # Current value that failed
+    required_format: Optional[str] = None   # Expected format/constraints
+    sample_content: Optional[str] = None    # For policies: draft template text
+    created_at: datetime = Field(default_factory=datetime.now)
+    resolved: bool = False
+    resolved_at: Optional[datetime] = None
+
+    def mark_resolved(self) -> "ActionItem":
+        """Returns a new ActionItem marked as resolved (immutable pattern)."""
+        return ActionItem(
+            **{**self.model_dump(), "resolved": True, "resolved_at": datetime.now()}
+        )
 
 
 # Pydantic Data Models (for validation)
@@ -50,6 +93,7 @@ class MerchantApplication(BaseModel):
 
 class ResumePayload(BaseModel):
     updated_data: Optional[Dict[str, Any]] = None
+    resolved_items: Optional[List[str]] = None  # List of action_item IDs that were resolved
     user_message: Optional[str] = None
 
 
@@ -91,6 +135,7 @@ class ConsultantState(TypedDict):
     compliance_issues: List[str]
     missing_artifacts: List[str]
     consultant_plan: List[str]
+    action_items: List[Dict[str, Any]]  # List of ActionItem dicts (immutable, append-only)
 
 
 class AgentState(IdentityState, WorkflowState, ValidationState, ConsultantState):

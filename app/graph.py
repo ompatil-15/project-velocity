@@ -62,8 +62,8 @@ def build_graph():
 
     workflow.add_conditional_edges("input_parser_node", check_auth)
 
-    # Doc intelligence -> Bank Verifier (Assuming pass)
-    workflow.add_edge("doc_intelligence_node", "bank_verifier_node")
+    # Doc intelligence -> Bank Verifier or Consultant (if docs are blurry/invalid)
+    workflow.add_conditional_edges("doc_intelligence_node", check_docs)
 
     # Bank Verifier -> Web Compliance or Consultant
     workflow.add_conditional_edges("bank_verifier_node", check_bank)
