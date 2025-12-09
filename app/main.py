@@ -598,6 +598,22 @@ async def resume_onboarding(
         if not current_state:
             raise HTTPException(status_code=404, detail="Session not found")
 
+        # Check if already completed
+        current_status = current_state.values.get("status", "")
+        if current_status == "COMPLETED":
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot resume a completed onboarding. This session has already been successfully completed."
+            )
+        
+        # Also check job store for completed status
+        job = await job_store.get_job(thread_id)
+        if job and job.get("status") == JobStatus.COMPLETED.value:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot resume a completed onboarding. This session has already been successfully completed."
+            )
+
         # Get current application data
         current_app_data = current_state.values.get("application_data", {})
 
@@ -731,6 +747,106 @@ async def list_jobs():
     return {"jobs": jobs}
 
 
+@app.get("/debug/config")
+async def get_config():
+    """
+    Get all system configuration including node configs, tools, and settings.
+    
+    Useful for:
+    - Understanding available nodes and their capabilities
+    - Seeing what tools are registered
+    - Debugging configuration issues
+    """
+    from app.core.tool_registry import tool_registry
+    from app.core.nodes import (
+        InputParserNode,
+        DocIntelligenceNode,
+        BankVerifierNode,
+        WebComplianceNode,
+        ConsultantNode,
+        FinalizerNode,
+    )
+    
+    # Get node configurations
+    nodes = {
+        "input_parser": InputParserNode.get_config().model_dump(),
+        "doc_intelligence": DocIntelligenceNode.get_config().model_dump(),
+        "bank_verifier": BankVerifierNode.get_config().model_dump(),
+        "web_compliance": WebComplianceNode.get_config().model_dump(),
+        "consultant": ConsultantNode.get_config().model_dump(),
+        "finalizer": FinalizerNode.get_config().model_dump(),
+    }
+    
+    # Get tool configurations
+    tools = {}
+    for tool in tool_registry.get_all_definitions():
+        tools[tool.name] = {
+            "description": tool.description,
+            "category": tool.category,
+            "requires_network": tool.requires_network,
+            "is_async": tool.is_async,
+            "input_schema": tool.input_schema,
+            "output_schema": tool.output_schema,
+        }
+    
+    # Group tools by category
+    tools_by_category = {}
+    for tool in tool_registry.get_all_definitions():
+        cat = tool.category
+        if cat not in tools_by_category:
+            tools_by_category[cat] = []
+        tools_by_category[cat].append(tool.name)
+    
+    # Environment settings
+    environment = {
+        "ENVIRONMENT": os.getenv("ENVIRONMENT", "development"),
+        "LLM_PROVIDER": os.getenv("LLM_PROVIDER", "gemini"),
+        "SIMULATE_REAL_CHECKS": os.getenv("SIMULATE_REAL_CHECKS", "false"),
+    }
+    
+    return {
+        "nodes": nodes,
+        "tools": tools,
+        "tools_by_category": tools_by_category,
+        "tool_count": len(tools),
+        "environment": environment,
+        "workflow_stages": ["INPUT", "DOCS", "BANK", "COMPLIANCE", "FINAL"],
+    }
+
+
+@app.get("/debug/tools")
+async def get_tools():
+    """
+    Get all registered tools with full details.
+    
+    Returns tools in OpenAI function calling format for LLM integration.
+    """
+    from app.core.tool_registry import tool_registry
+    
+    tools = []
+    for tool in tool_registry.get_all_definitions():
+        tools.append({
+            "name": tool.name,
+            "description": tool.description,
+            "category": tool.category,
+            "input_schema": tool.input_schema,
+            "output_schema": tool.output_schema,
+            "requires_network": tool.requires_network,
+            "is_async": tool.is_async,
+            "is_idempotent": tool.is_idempotent,
+            "has_mock": tool.mock_output is not None,
+        })
+    
+    # Also return OpenAI function format
+    openai_functions = tool_registry.to_openai_functions()
+    
+    return {
+        "tools": tools,
+        "count": len(tools),
+        "openai_functions": openai_functions,
+    }
+
+
 # --- Simulation Control (No Restart Needed) ---
 
 from app.utils.simulation import sim
@@ -739,92 +855,16 @@ from app.utils.simulation import sim
 @app.get("/debug/simulate")
 async def get_simulations():
     """
-    Get current simulation flags and behavior.
-    Shows which failures are being simulated and what each node will do.
+    Get current simulation flags.
     """
     if not sim.is_dev_mode():
         raise HTTPException(
             status_code=403, detail="Simulations only available in development mode"
         )
 
-    import os
-
-    real_checks_enabled = os.getenv("SIMULATE_REAL_CHECKS", "false").lower() == "true"
-
     return {
-        "environment": "development",
-        "real_checks_enabled": real_checks_enabled,
-        "behavior": {
-            "doc": (
-                "MOCK_SUCCESS"
-                if sim.should_skip("doc")
-                else (
-                    "SIMULATE_FAILURE"
-                    if any(
-                        sim.should_fail(f)
-                        for f in ["doc_blurry", "doc_missing", "doc_invalid"]
-                    )
-                    else "REAL_CHECK"
-                )
-            ),
-            "bank": (
-                "MOCK_SUCCESS"
-                if sim.should_skip("bank")
-                else (
-                    "SIMULATE_FAILURE"
-                    if any(
-                        sim.should_fail(f)
-                        for f in [
-                            "bank_name_mismatch",
-                            "bank_invalid_ifsc",
-                            "bank_account_closed",
-                        ]
-                    )
-                    else "REAL_CHECK"
-                )
-            ),
-            "web": (
-                "MOCK_SUCCESS"
-                if sim.should_skip("web")
-                else (
-                    "SIMULATE_FAILURE"
-                    if any(
-                        sim.should_fail(f)
-                        for f in [
-                            "web_unreachable",
-                            "web_no_ssl",
-                            "web_no_refund_policy",
-                            "web_no_privacy_policy",
-                            "web_no_terms",
-                            "web_prohibited_content",
-                            "web_domain_new",
-                            "web_adverse_media",
-                        ]
-                    )
-                    else "REAL_CHECK"
-                )
-            ),
-            "input": (
-                "MOCK_SUCCESS"
-                if sim.should_skip("input")
-                else (
-                    "SIMULATE_FAILURE"
-                    if any(
-                        sim.should_fail(f)
-                        for f in ["input_invalid_pan", "input_invalid_gstin"]
-                    )
-                    else "REAL_CHECK"
-                )
-            ),
-        },
-        "active_failures": sim.get_active_simulations(),
-        "all_flags": sim.get_all_flags(),
-        "available_scenarios": sim.ALL_SCENARIOS,
-        "hint": {
-            "mock_success": "Default in dev mode - all checks pass",
-            "simulate_failure": "Set specific flags to test error UI",
-            "real_check": "Set SIMULATE_REAL_CHECKS=true to run actual checks",
-        },
+        "flags": sim.get_all_flags(),
+        "active": sim.get_active_simulations(),
     }
 
 
