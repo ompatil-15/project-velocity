@@ -262,7 +262,9 @@ class BaseNode(ABC):
     
     def _log(self, message: str):
         """Log a message (with node name prefix)."""
-        print(f"--- [{self._config.display_name}] {message}")
+        from app.utils.logger import get_logger
+        logger = get_logger(f"node.{self._config.node_name}")
+        logger.info(message)
     
     # =========================================================================
     # State Conversion

@@ -11,6 +11,9 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from jinja2 import Environment, FileSystemLoader
 from app.utils.simulation import sim
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # Template directory
@@ -86,7 +89,7 @@ async def send_welcome_email(
     """
     # Check simulation mode
     if sim.is_dev_mode() and not os.getenv("RESEND_API_KEY"):
-        print(f"[Email] DEV MODE: Would send welcome email to {to_email}")
+        logger.debug("DEV MODE: Would send welcome email to %s", to_email)
         return {
             "status": "simulated",
             "message": f"Email would be sent to {to_email} (no API key configured)",
@@ -150,7 +153,7 @@ async def send_welcome_email(
         }
 
     except Exception as e:
-        print(f"[Email] Failed to send email: {e}")
+        logger.error("Failed to send email: %s", e)
         return {
             "status": "failed",
             "message": str(e),

@@ -1,3 +1,14 @@
+"""
+Web Compliance Node - Verifies merchant website for payment gateway compliance.
+
+Checks performed:
+- SSL/HTTPS enabled
+- Required policy pages (privacy, terms, refund)
+- Contact information
+- Prohibited content
+- Domain age and reputation
+"""
+
 import asyncio
 import os
 import re
@@ -6,13 +17,15 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from app.schema import AgentState, ActionItem, ActionCategory, ActionSeverity
 from app.utils.simulation import sim
+from app.utils.logger import get_logger
 from playwright.async_api import async_playwright
 from app.utils.llm_factory import get_llm
 from app.utils.adverse_media import check_reputation
 from app.utils.domain_checks import get_domain_from_url, get_domain_age, has_mx_records
 from langchain_core.messages import HumanMessage
 
-# --- Configuration ---
+logger = get_logger(__name__)
+
 EVIDENCE_DIR = "evidence"
 PROHIBITED_KEYWORDS = [
     "gambling", "casino", "drugs", "weapons", "firearms",
@@ -136,7 +149,7 @@ async def capture_screenshot(page, merchant_id: str, tag: str) -> str:
         await page.screenshot(path=filename, full_page=True)
         return filename
     except Exception as e:
-        print(f"Failed to capture screenshot for {tag}: {e}")
+        logger.warning("Failed to capture screenshot for %s: %s", tag, e)
         return ""
 
 
@@ -176,7 +189,7 @@ async def analyze_vision_risk(image_path: str) -> float:
         return 0.1
 
     except Exception as e:
-        print(f"Vision Analysis Failed: {e}")
+        logger.warning("Vision analysis failed: %s", e)
         return 0.0
 
 
@@ -220,7 +233,7 @@ async def web_compliance_node(state: AgentState) -> Dict[str, Any]:
     risk_score_increase = 0.0
     evidence_files = []
 
-    print(f"--- Web Compliance Check: {url} ---")
+    logger.info("Web Compliance node started for URL: %s", url)
 
     # Handle missing URL
     if not url:
@@ -244,9 +257,8 @@ async def web_compliance_node(state: AgentState) -> Dict[str, Any]:
     # ========== SIMULATION CHECKS ==========
     # These allow testing specific failure scenarios in development mode
     
-    # --- Force Success: Skip all web checks ---
     if sim.should_skip("web"):
-        print("!!! FORCE SUCCESS: Skipping web compliance checks !!!")
+        logger.debug("Simulation: Skipping web compliance checks")
         return {
             "is_website_compliant": True,
             "compliance_issues": [],
@@ -255,9 +267,8 @@ async def web_compliance_node(state: AgentState) -> Dict[str, Any]:
             "risk_score": 0.0,
         }
     
-    # --- Simulation: Website Unreachable ---
     if sim.should_fail("web_unreachable"):
-        print("!!! SIMULATING WEBSITE UNREACHABLE !!!")
+        logger.debug("Simulation: Website unreachable failure")
         action_items.append(create_action_item(
             category=ActionCategory.WEBSITE,
             severity=ActionSeverity.BLOCKING,
@@ -275,9 +286,8 @@ async def web_compliance_node(state: AgentState) -> Dict[str, Any]:
             "error_message": "Website unreachable (Simulated)",
         }
     
-    # --- Simulation: No SSL ---
     if sim.should_fail("web_no_ssl"):
-        print("!!! SIMULATING NO SSL !!!")
+        logger.debug("Simulation: No SSL failure")
         action_items.append(create_action_item(
             category=ActionCategory.WEBSITE,
             severity=ActionSeverity.BLOCKING,
@@ -296,9 +306,8 @@ async def web_compliance_node(state: AgentState) -> Dict[str, Any]:
             "risk_score": 0.7,
         }
     
-    # --- Simulation: Missing Refund Policy ---
     if sim.should_fail("web_no_refund_policy"):
-        print("!!! SIMULATING NO REFUND POLICY !!!")
+        logger.debug("Simulation: No refund policy failure")
         action_items.append(create_action_item(
             category=ActionCategory.COMPLIANCE,
             severity=ActionSeverity.BLOCKING,
@@ -316,9 +325,8 @@ async def web_compliance_node(state: AgentState) -> Dict[str, Any]:
             "risk_score": 0.5,
         }
     
-    # --- Simulation: Missing Privacy Policy ---
     if sim.should_fail("web_no_privacy_policy"):
-        print("!!! SIMULATING NO PRIVACY POLICY !!!")
+        logger.debug("Simulation: No privacy policy failure")
         action_items.append(create_action_item(
             category=ActionCategory.COMPLIANCE,
             severity=ActionSeverity.BLOCKING,
@@ -336,9 +344,8 @@ async def web_compliance_node(state: AgentState) -> Dict[str, Any]:
             "risk_score": 0.5,
         }
     
-    # --- Simulation: Missing Terms of Service ---
     if sim.should_fail("web_no_terms"):
-        print("!!! SIMULATING NO TERMS OF SERVICE !!!")
+        logger.debug("Simulation: No terms of service failure")
         action_items.append(create_action_item(
             category=ActionCategory.COMPLIANCE,
             severity=ActionSeverity.WARNING,
@@ -356,9 +363,8 @@ async def web_compliance_node(state: AgentState) -> Dict[str, Any]:
             "risk_score": 0.3,
         }
     
-    # --- Simulation: Prohibited Content ---
     if sim.should_fail("web_prohibited_content"):
-        print("!!! SIMULATING PROHIBITED CONTENT !!!")
+        logger.debug("Simulation: Prohibited content failure")
         action_items.append(create_action_item(
             category=ActionCategory.COMPLIANCE,
             severity=ActionSeverity.BLOCKING,
@@ -376,9 +382,8 @@ async def web_compliance_node(state: AgentState) -> Dict[str, Any]:
             "risk_score": 1.0,
         }
     
-    # --- Simulation: Domain Too New ---
     if sim.should_fail("web_domain_new"):
-        print("!!! SIMULATING NEW DOMAIN !!!")
+        logger.debug("Simulation: Domain too new failure")
         action_items.append(create_action_item(
             category=ActionCategory.WEBSITE,
             severity=ActionSeverity.WARNING,
@@ -396,9 +401,8 @@ async def web_compliance_node(state: AgentState) -> Dict[str, Any]:
             "risk_score": 0.5,
         }
     
-    # --- Simulation: Adverse Media ---
     if sim.should_fail("web_adverse_media"):
-        print("!!! SIMULATING ADVERSE MEDIA !!!")
+        logger.debug("Simulation: Adverse media failure")
         action_items.append(create_action_item(
             category=ActionCategory.COMPLIANCE,
             severity=ActionSeverity.WARNING,
@@ -577,7 +581,7 @@ async def web_compliance_node(state: AgentState) -> Dict[str, Any]:
                     ))
 
         except Exception as e:
-            print(f"Playwright navigation error: {e}")
+            logger.error("Playwright navigation error: %s", e)
             issues.append(f"Website unreachable: {str(e)}")
             action_items.append(create_action_item(
                 category=ActionCategory.WEBSITE,

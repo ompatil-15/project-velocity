@@ -13,27 +13,29 @@ Usage:
 import logging
 import sys
 import os
-from datetime import datetime
 
 
-# Log format configuration
-LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)-25s | %(message)s"
+LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-
-# Environment-based log level
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
 
 def setup_logging():
-    """Configure root logger with standard format."""
-    logging.basicConfig(
-        level=getattr(logging, LOG_LEVEL, logging.INFO),
-        format=LOG_FORMAT,
-        datefmt=DATE_FORMAT,
-        handlers=[
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
+    """Configure all loggers with standard format."""
+    formatter = logging.Formatter(LOG_FORMAT, datefmt=DATE_FORMAT)
+    
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(formatter)
+    
+    root = logging.getLogger()
+    root.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
+    root.handlers = [handler]
+    
+    # Configure uvicorn loggers to use same format
+    for name in ["uvicorn", "uvicorn.access", "uvicorn.error"]:
+        uvicorn_logger = logging.getLogger(name)
+        uvicorn_logger.handlers = [handler]
+        uvicorn_logger.propagate = False
     
     # Reduce noise from third-party libraries
     logging.getLogger("httpx").setLevel(logging.WARNING)

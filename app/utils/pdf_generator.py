@@ -11,6 +11,9 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from jinja2 import Environment, FileSystemLoader
 from app.utils.simulation import sim
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # Template directory
@@ -119,7 +122,7 @@ async def generate_agreement_pdf(
     
     # Check simulation mode
     if sim.is_dev_mode() and sim.should_skip("doc"):
-        print(f"[PDF] DEV MODE: Would generate agreement at {output_path}")
+        logger.debug("DEV MODE: Would generate agreement at %s", output_path)
         # Still generate the PDF in dev mode for testing
     
     # Prepare context
@@ -136,7 +139,7 @@ async def generate_agreement_pdf(
         html = HTML(string=html_content)
         html.write_pdf(str(output_path))
         
-        print(f"[PDF] Generated agreement: {output_path}")
+        logger.info("Generated agreement: %s", output_path)
         
         return {
             "status": "generated",
@@ -148,7 +151,7 @@ async def generate_agreement_pdf(
         }
         
     except ImportError as e:
-        print(f"[PDF] WeasyPrint not available: {e}")
+        logger.warning("WeasyPrint not available: %s", e)
         # Fallback: save HTML instead
         html_path = AGREEMENTS_DIR / f"{output_filename}.html"
         with open(html_path, "w") as f:
@@ -164,7 +167,7 @@ async def generate_agreement_pdf(
         }
         
     except Exception as e:
-        print(f"[PDF] Failed to generate PDF: {e}")
+        logger.error("Failed to generate PDF: %s", e)
         return {
             "status": "failed",
             "message": str(e),

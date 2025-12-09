@@ -7,6 +7,9 @@ import random
 from functools import wraps
 from typing import Callable, Type, Tuple, Optional
 import time
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class RateLimitError(Exception):
@@ -67,7 +70,7 @@ def retry_with_backoff(
                         raise
                     
                     if attempt == max_retries:
-                        print(f"[Retry] Max retries ({max_retries}) exceeded. Giving up.")
+                        logger.error("Max retries (%d) exceeded. Giving up.", max_retries)
                         raise
                     
                     # Calculate delay with exponential backoff
@@ -77,8 +80,7 @@ def retry_with_backoff(
                     if jitter:
                         delay = delay * (0.75 + random.random() * 0.5)
                     
-                    print(f"[Retry] Rate limited. Attempt {attempt + 1}/{max_retries}. "
-                          f"Waiting {delay:.2f}s before retry...")
+                    logger.warning("Rate limited. Attempt %d/%d. Waiting %.2fs", attempt + 1, max_retries, delay)
                     time.sleep(delay)
             
             raise last_exception
@@ -120,7 +122,7 @@ def async_retry_with_backoff(
                         raise
                     
                     if attempt == max_retries:
-                        print(f"[Retry] Max retries ({max_retries}) exceeded. Giving up.")
+                        logger.error("Max retries (%d) exceeded. Giving up.", max_retries)
                         raise
                     
                     # Calculate delay with exponential backoff
@@ -130,8 +132,7 @@ def async_retry_with_backoff(
                     if jitter:
                         delay = delay * (0.75 + random.random() * 0.5)
                     
-                    print(f"[Retry] Rate limited. Attempt {attempt + 1}/{max_retries}. "
-                          f"Waiting {delay:.2f}s before retry...")
+                    logger.warning("Rate limited. Attempt %d/%d. Waiting %.2fs", attempt + 1, max_retries, delay)
                     await asyncio.sleep(delay)
             
             raise last_exception
@@ -177,12 +178,11 @@ class RetryingLLM:
                     raise
                 
                 if attempt == self._max_retries:
-                    print(f"[RetryingLLM] Max retries exceeded. Error: {e}")
+                    logger.error("LLM max retries exceeded: %s", e)
                     raise
                 
                 delay = self._calculate_delay(attempt)
-                print(f"[RetryingLLM] Rate limited. Attempt {attempt + 1}/{self._max_retries}. "
-                      f"Waiting {delay:.2f}s...")
+                logger.warning("LLM rate limited. Attempt %d/%d. Waiting %.2fs", attempt + 1, self._max_retries, delay)
                 time.sleep(delay)
         
         raise last_exception
@@ -201,12 +201,11 @@ class RetryingLLM:
                     raise
                 
                 if attempt == self._max_retries:
-                    print(f"[RetryingLLM] Max retries exceeded. Error: {e}")
+                    logger.error("LLM max retries exceeded: %s", e)
                     raise
                 
                 delay = self._calculate_delay(attempt)
-                print(f"[RetryingLLM] Rate limited. Attempt {attempt + 1}/{self._max_retries}. "
-                      f"Waiting {delay:.2f}s...")
+                logger.warning("LLM rate limited. Attempt %d/%d. Waiting %.2fs", attempt + 1, self._max_retries, delay)
                 await asyncio.sleep(delay)
         
         raise last_exception
