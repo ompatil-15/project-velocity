@@ -1,8 +1,20 @@
+"""
+Verification nodes for document and bank account validation.
+
+These nodes handle:
+- Document OCR and content extraction
+- Bank account verification via penny drop
+- Final onboarding completion
+"""
+
 from typing import Any, Dict, List
 import os
 from app.schema import AgentState, ActionItem, ActionCategory, ActionSeverity
 from app.utils.simulation import sim
+from app.utils.logger import get_logger
 from langchain_docling import DoclingLoader
+
+logger = get_logger(__name__)
 
 
 def create_action_item(
@@ -32,27 +44,22 @@ def create_action_item(
 
 
 def doc_intelligence_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Extracts text from documents using Docling (IBM) and validates content.
-    Corresponds to Steps 10, 11.
-    """
-    print("--- [Node] Doc Intelligence ---")
+    """Extract and validate KYC documents using OCR."""
+    logger.info("Document Intelligence node started")
     
     action_items: List[Dict[str, Any]] = []
     doc_path = state["application_data"].get("documents_path")
 
-    # --- Force Success: Skip document checks ---
     if sim.should_skip("doc"):
-        print("!!! FORCE SUCCESS: Skipping document checks !!!")
+        logger.debug("Simulation: Skipping document checks")
         return {
             "is_doc_verified": True,
-            "verification_notes": ["SIMULATION: Document checks skipped (force_success)"],
+            "verification_notes": ["Document checks skipped (simulation)"],
             "action_items": [],
         }
     
-    # --- Simulation: Document Blurry/OCR Failure ---
     if sim.should_fail("doc_blurry") or sim.should_fail_doc():
-        print("!!! SIMULATING DOCUMENT BLURRY !!!")
+        logger.debug("Simulation: Document blurry failure")
         action_items.append(create_action_item(
             category=ActionCategory.DOCUMENT,
             severity=ActionSeverity.BLOCKING,
@@ -71,9 +78,8 @@ def doc_intelligence_node(state: AgentState) -> Dict[str, Any]:
             "action_items": action_items,
         }
     
-    # --- Simulation: Document Missing ---
     if sim.should_fail("doc_missing"):
-        print("!!! SIMULATING DOCUMENT MISSING !!!")
+        logger.debug("Simulation: Document missing failure")
         action_items.append(create_action_item(
             category=ActionCategory.DOCUMENT,
             severity=ActionSeverity.BLOCKING,
@@ -92,9 +98,8 @@ def doc_intelligence_node(state: AgentState) -> Dict[str, Any]:
             "action_items": action_items,
         }
     
-    # --- Simulation: Document Invalid (missing required fields) ---
     if sim.should_fail("doc_invalid"):
-        print("!!! SIMULATING DOCUMENT INVALID !!!")
+        logger.debug("Simulation: Document invalid failure")
         action_items.append(create_action_item(
             category=ActionCategory.DOCUMENT,
             severity=ActionSeverity.BLOCKING,
@@ -140,21 +145,18 @@ def doc_intelligence_node(state: AgentState) -> Dict[str, Any]:
             "action_items": action_items,
         }
 
-    # 3. Perform Extraction using Docling
     try:
-        print(f"Extracting content from: {doc_path} using Docling...")
+        logger.debug("Extracting content from: %s", doc_path)
         loader = DoclingLoader(file_path=doc_path)
         docs = loader.load()
         full_text = "\n".join([d.page_content for d in docs])
 
-        # 4. Keyword Validation
         keywords = [
             "PAN", "Aadhaar", "Government of India", "Income Tax",
             "Male", "Female", "Permanent Account Number",
         ]
         found_keywords = [k for k in keywords if k.lower() in full_text.lower()]
-
-        print(f"Extracted Length: {len(full_text)} chars. Found Keywords: {found_keywords}")
+        logger.debug("Extracted %d chars, found keywords: %s", len(full_text), found_keywords)
 
         # Heuristic: if we got reasonable text and some keywords
         if len(found_keywords) >= 2 or len(full_text) > 50:
@@ -186,7 +188,7 @@ def doc_intelligence_node(state: AgentState) -> Dict[str, Any]:
             }
 
     except Exception as e:
-        print(f"Docling Extraction Failed: {e}")
+        logger.error("Document extraction failed: %s", e)
         action_items.append(create_action_item(
             category=ActionCategory.DOCUMENT,
             severity=ActionSeverity.BLOCKING,
@@ -206,11 +208,8 @@ def doc_intelligence_node(state: AgentState) -> Dict[str, Any]:
 
 
 def bank_verifier_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Performs Penny Drop and name match.
-    Corresponds to Steps 6, 7.
-    """
-    print("--- [Node] Bank Verifier ---")
+    """Verify bank account via penny drop and name matching."""
+    logger.info("Bank Verifier node started")
     
     action_items: List[Dict[str, Any]] = []
     bank_details = state["application_data"].get("bank_details", {})
@@ -218,18 +217,16 @@ def bank_verifier_node(state: AgentState) -> Dict[str, Any]:
     account_number = bank_details.get("account_number", "")
     ifsc = bank_details.get("ifsc", "")
 
-    # --- Force Success: Skip bank checks ---
     if sim.should_skip("bank"):
-        print("!!! FORCE SUCCESS: Skipping bank checks !!!")
+        logger.debug("Simulation: Skipping bank checks")
         return {
             "is_bank_verified": True,
             "verification_notes": ["SIMULATION: Bank checks skipped (force_success)"],
             "action_items": [],
         }
     
-    # --- Simulation: Bank Name Mismatch ---
     if sim.should_fail("bank_name_mismatch") or holder_name == "FAIL_ME":
-        print("!!! SIMULATING BANK NAME MISMATCH !!!")
+        logger.debug("Simulation: Bank name mismatch failure")
         action_items.append(create_action_item(
             category=ActionCategory.BANK,
             severity=ActionSeverity.BLOCKING,
@@ -247,9 +244,8 @@ def bank_verifier_node(state: AgentState) -> Dict[str, Any]:
             "action_items": action_items,
         }
     
-    # --- Simulation: Invalid IFSC ---
     if sim.should_fail("bank_invalid_ifsc"):
-        print("!!! SIMULATING INVALID IFSC !!!")
+        logger.debug("Simulation: Invalid IFSC failure")
         action_items.append(create_action_item(
             category=ActionCategory.BANK,
             severity=ActionSeverity.BLOCKING,
@@ -267,9 +263,8 @@ def bank_verifier_node(state: AgentState) -> Dict[str, Any]:
             "action_items": action_items,
         }
     
-    # --- Simulation: Account Closed ---
     if sim.should_fail("bank_account_closed"):
-        print("!!! SIMULATING ACCOUNT CLOSED !!!")
+        logger.debug("Simulation: Account closed failure")
         action_items.append(create_action_item(
             category=ActionCategory.BANK,
             severity=ActionSeverity.BLOCKING,
@@ -312,11 +307,8 @@ def bank_verifier_node(state: AgentState) -> Dict[str, Any]:
 
 
 def finalizer_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Generates agreement and finishes onboarding.
-    Corresponds to Steps 13, 14.
-    """
-    print("--- [Node] Finalizer ---")
+    """Complete the onboarding process and prepare for agreement generation."""
+    logger.info("Finalizer node started")
 
     return {
         "verification_notes": ["Agreement generated", "Settlement enabled"],

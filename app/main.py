@@ -1,54 +1,55 @@
+"""
+Project Velocity API - Merchant Onboarding Service
+
+This module provides the FastAPI application for merchant onboarding,
+including document upload, status checking, and workflow management.
+"""
+
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, UploadFile, File
 from fastapi.responses import FileResponse
 from app.schema import MerchantApplication, ResumePayload, JobStatus
 from app.graph import build_graph
-from typing import List
+from typing import List, Optional
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from fastapi.staticfiles import StaticFiles
 from app.utils import job_store
-import uvicorn
-import uuid
+from app.utils.logger import get_logger
 from contextlib import asynccontextmanager
 import aiosqlite
+import uvicorn
+import uuid
 import os
-from typing import Optional
 from datetime import datetime
 
-# Uploads directory for documents
-UPLOADS_DIR = "uploads"
+logger = get_logger(__name__)
 
-# Global variable to hold the compiled graph
+UPLOADS_DIR = "uploads"
 agent_app = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize job table
+    """Application lifespan manager for startup and shutdown."""
     await job_store.init_job_table()
-    print("Job tracking table initialized.")
+    logger.info("Job tracking database initialized")
 
-    # Load the Checkpointer
     async with AsyncSqliteSaver.from_conn_string(
         "db/checkpoints.sqlite"
     ) as checkpointer:
-        # Build and Compile the Graph
         global agent_app
         workflow = build_graph()
         agent_app = workflow.compile(
             checkpointer=checkpointer, interrupt_after=["consultant_fixer_node"]
         )
-        print("Agent Graph compiled with Async Persistence.")
+        logger.info("Workflow graph compiled with persistence")
         yield
-        # Connection closes automatically on exit
 
 
 app = FastAPI(title="Project Velocity Agent", version="1.0", lifespan=lifespan)
 
-# Create necessary directories
 os.makedirs("evidence", exist_ok=True)
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
-# Mount static directories
 app.mount("/evidence", StaticFiles(directory="evidence"), name="evidence")
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
@@ -165,31 +166,24 @@ async def get_agreement(merchant_id: str):
 
 async def run_onboarding_workflow(thread_id: str, initial_state: dict):
     """
-    Background task that runs the onboarding workflow.
-    Updates job status and action items in SQLite as it progresses.
-    On success, generates agreement PDF and sends welcome email.
+    Background task that executes the onboarding workflow.
+    
+    Updates job status in the database and handles completion actions
+    including agreement generation and welcome email dispatch.
     """
     from app.utils.pdf_generator import generate_agreement_pdf
     from app.utils.email_service import send_welcome_email
 
     try:
-        # Update status to processing
         await job_store.update_job(thread_id, status=JobStatus.PROCESSING)
-
         config = {"configurable": {"thread_id": thread_id}}
 
-        # Run the workflow
-        print(f"[Background] Starting workflow for thread {thread_id}")
+        logger.info("Starting workflow for thread %s", thread_id)
         final_state = await agent_app.ainvoke(initial_state, config=config)
-
-        # Extract action items from final state
         action_items = final_state.get("action_items", [])
-
-        # Check if workflow is interrupted (needs review)
         current_state = await agent_app.aget_state(config)
 
         if current_state.next:
-            # Graph is interrupted - needs merchant intervention
             await job_store.update_job(
                 thread_id,
                 status=JobStatus.NEEDS_REVIEW,
@@ -197,6 +191,7 @@ async def run_onboarding_workflow(thread_id: str, initial_state: dict):
                 result=final_state,
                 action_items=action_items,
             )
+            logger.info("Thread %s requires merchant review", thread_id)
         elif final_state.get("error_message"):
             await job_store.update_job(
                 thread_id,
@@ -206,31 +201,22 @@ async def run_onboarding_workflow(thread_id: str, initial_state: dict):
                 result=final_state,
                 action_items=action_items,
             )
+            logger.warning("Thread %s has errors: %s", thread_id, final_state.get("error_message"))
         else:
-            # SUCCESS: Generate agreement PDF and send welcome email
-            print(f"[Background] SUCCESS - Generating agreement and sending email")
+            logger.info("Thread %s completed successfully, generating artifacts", thread_id)
             merchant_id = final_state.get("merchant_id", thread_id)
             merchant_data = final_state.get("application_data", {})
 
-            print(f"[Background] Merchant ID: {merchant_id}")
-            print(
-                f"[Background] Merchant Data Keys: {merchant_data.keys() if merchant_data else 'None'}"
-            )
-
-            # Generate agreement PDF
             pdf_result = await generate_agreement_pdf(
                 merchant_data=merchant_data,
                 merchant_id=merchant_id,
             )
-            print(f"[Background] Agreement PDF: {pdf_result}")
+            logger.debug("Agreement PDF generated: %s", pdf_result.get("file_path"))
 
-            # Send welcome email
             signatory_email = merchant_data.get("signatory_details", {}).get("email")
-            print(f"[Background] Signatory email from data: {signatory_email}")
-            # Use test email in dev mode if not provided
             if not signatory_email:
                 signatory_email = os.getenv("TEST_EMAIL")
-                print(f"[Background] Using fallback email: {signatory_email}")
+                logger.debug("Using fallback email: %s", signatory_email)
 
             email_result = await send_welcome_email(
                 to_email=signatory_email,
@@ -238,7 +224,7 @@ async def run_onboarding_workflow(thread_id: str, initial_state: dict):
                 merchant_id=merchant_id,
                 agreement_pdf_path=pdf_result.get("file_path"),
             )
-            print(f"[Background] Welcome email result: {email_result}")
+            logger.debug("Welcome email sent: %s", email_result.get("status"))
 
             # Update job with completion info
             await job_store.update_job(
@@ -253,12 +239,10 @@ async def run_onboarding_workflow(thread_id: str, initial_state: dict):
                 action_items=action_items,
             )
 
-        print(
-            f"[Background] Workflow completed for thread {thread_id} with {len(action_items)} action items"
-        )
+        logger.info("Workflow completed for thread %s with %d action items", thread_id, len(action_items))
 
     except Exception as e:
-        print(f"[Background] Workflow failed for thread {thread_id}: {e}")
+        logger.error("Workflow failed for thread %s: %s", thread_id, e)
         await job_store.update_job(
             thread_id,
             status=JobStatus.FAILED,
@@ -272,12 +256,12 @@ async def start_onboarding(
     background_tasks: BackgroundTasks,
 ):
     """
-    Triggers the autonomous onboarding agent.
+    Initiate the merchant onboarding workflow.
+    
     Returns immediately with a thread_id for status polling.
-    The actual workflow runs in the background.
+    The verification workflow executes asynchronously in the background.
     """
-    print(f"Starting onboarding for merchant: {application.merchant_id}")
-    # Generate thread ID
+    logger.info("Received onboarding request for merchant: %s", application.merchant_id)
     thread_id = str(uuid.uuid4())
 
     # Use provided merchant_id or generate UUID
@@ -636,7 +620,7 @@ async def resume_onboarding(
         if updates:
             merged_data = deep_merge(current_app_data, updates)
             await agent_app.aupdate_state(config, {"application_data": merged_data})
-            print(f"Updated application data: {list(updates.keys())}")
+            logger.debug("Updated application data: %s", list(updates.keys()))
 
         # Update job status to processing
         await job_store.update_job(thread_id, status=JobStatus.PROCESSING)
@@ -699,10 +683,10 @@ async def resume_onboarding(
                         action_items=final_items,
                     )
 
-                print(f"[Background] Resume completed for {thread_id}")
+                logger.info("Resume completed for thread %s", thread_id)
 
             except Exception as e:
-                print(f"[Background] Resume failed for {thread_id}: {e}")
+                logger.error("Resume failed for thread %s: %s", thread_id, e)
                 await job_store.update_job(
                     thread_id,
                     status=JobStatus.FAILED,
