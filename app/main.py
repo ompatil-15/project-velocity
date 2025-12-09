@@ -410,6 +410,83 @@ async def get_status(thread_id: str):
         raise HTTPException(status_code=404, detail=f"Session not found: {str(e)}")
 
 
+@app.get("/onboard/{thread_id}/state")
+async def get_full_state(thread_id: str):
+    """
+    Get the full state of the onboarding session including all application data.
+    
+    Useful for:
+    - Debugging data updates after resume
+    - Viewing current merchant application data
+    - Inspecting verification flags
+    
+    Returns:
+        - application_data: Full merchant application (business, bank, signatory details)
+        - verification_flags: is_auth_valid, is_doc_verified, is_bank_verified, is_website_compliant
+        - workflow_state: status, stage, error messages
+        - action_items: All action items with full details
+    """
+    try:
+        config = {"configurable": {"thread_id": thread_id}}
+        current_state = await agent_app.aget_state(config)
+        
+        if not current_state or not current_state.values:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        state = current_state.values
+        
+        # Build comprehensive response
+        response = {
+            # Application data
+            "application_data": state.get("application_data", {}),
+            "merchant_id": state.get("merchant_id"),
+            
+            # Verification flags
+            "verification_flags": {
+                "is_auth_valid": state.get("is_auth_valid", False),
+                "is_doc_verified": state.get("is_doc_verified", False),
+                "is_bank_verified": state.get("is_bank_verified", False),
+                "is_website_compliant": state.get("is_website_compliant", False),
+            },
+            
+            # Workflow state
+            "workflow": {
+                "status": state.get("status", "IN_PROGRESS"),
+                "stage": state.get("stage", "UNKNOWN"),
+                "next_step": state.get("next_step"),
+                "error_message": state.get("error_message"),
+                "retry_count": state.get("retry_count", 0),
+            },
+            
+            # Risk and compliance
+            "assessment": {
+                "risk_score": state.get("risk_score", 0.0),
+                "compliance_issues": state.get("compliance_issues", []),
+                "missing_artifacts": state.get("missing_artifacts", []),
+            },
+            
+            # Action items
+            "action_items": state.get("action_items", []),
+            
+            # Notes and plan
+            "verification_notes": state.get("verification_notes", []),
+            "consultant_plan": state.get("consultant_plan", []),
+            
+            # Graph metadata
+            "_meta": {
+                "next_nodes": list(current_state.next) if current_state.next else [],
+                "is_interrupted": bool(current_state.next),
+            }
+        }
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Session not found: {str(e)}")
+
+
 @app.get("/onboard/{thread_id}/action-items")
 async def get_action_items(
     thread_id: str,
