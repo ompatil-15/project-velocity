@@ -408,7 +408,7 @@ POST /debug/test-pdf    → Generate test agreement PDF
 
 ### Test Email
 ```bash
-curl -X POST "http://localhost:8000/debug/test-email?to_email=patilom001@gmail.com"
+curl -X POST "http://localhost:8000/debug/test-email?to_email=your_email@example.com"
 ```
 
 ### Test PDF
