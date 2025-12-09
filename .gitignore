@@ -223,6 +223,7 @@ agreements/
 db/*.sqlite
 db/*.sqlite-wal
 db/*.sqlite-shm
+db/*
 
 # macOS
 .DS_Store
