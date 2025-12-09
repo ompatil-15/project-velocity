@@ -5,7 +5,7 @@ import sys
 
 # Sample Payload
 PAYLOAD = {
-    "api_key": "test_key",
+    "merchant_id": "550e8400-e29b-41d4-a716-446655440000",  # Optional - UUID generated if not provided
     "business_details": {
         "pan": "ABCDE1234F",
         "entity_type": "Private Limited",
@@ -28,6 +28,46 @@ PAYLOAD = {
 }
 
 
+def poll_for_completion(thread_id: str, max_wait: int = 120, poll_interval: int = 2):
+    """
+    Poll the status endpoint until the job completes or times out.
+    
+    Args:
+        thread_id: The thread ID to poll
+        max_wait: Maximum time to wait in seconds
+        poll_interval: Time between polls in seconds
+    
+    Returns:
+        Final status data or None if timed out
+    """
+    start_time = time.time()
+    terminal_statuses = ["COMPLETED", "NEEDS_REVIEW", "FAILED"]
+    
+    print(f"Polling for status (max {max_wait}s)...")
+    
+    while time.time() - start_time < max_wait:
+        try:
+            r = requests.get(f"http://localhost:8000/onboard/{thread_id}/status")
+            if r.status_code == 200:
+                status_data = r.json()
+                current_status = status_data.get("status")
+                current_stage = status_data.get("stage", "UNKNOWN")
+                
+                print(f"  Status: {current_status} | Stage: {current_stage}")
+                
+                if current_status in terminal_statuses:
+                    return status_data
+            else:
+                print(f"  Poll failed: {r.status_code}")
+        except Exception as e:
+            print(f"  Poll error: {e}")
+        
+        time.sleep(poll_interval)
+    
+    print("Polling timed out!")
+    return None
+
+
 def run_integration_test():
     print("Starting server...")
     server = subprocess.Popen(
@@ -38,52 +78,71 @@ def run_integration_test():
         print("Waiting for server to be ready...")
         time.sleep(5)
 
-        # 1. Start Onboarding
-        print("\n--- Step 1: Start Onboarding (Expect NEED_REVIEW) ---")
+        # 1. Start Onboarding (Now async - returns immediately)
+        print("\n--- Step 1: Start Onboarding (Async) ---")
         r = requests.post("http://localhost:8000/onboard", json=PAYLOAD)
         data = r.json()
-        print(f"Full Response: {data}")
+        print(f"Response: {data}")
+        
         thread_id = data.get("thread_id")
         print(f"Status: {data.get('status')} | Thread ID: {thread_id}")
-        consultant_plan = data.get("result", {}).get("consultant_plan")
-        notes = data.get("result", {}).get("verification_notes", [])
-        print(f"Consultant Plan: {consultant_plan}")
-        print(f"Verification Notes: {notes}")
-
-        # We expect it to finish the run and STOP at the interrupt (after consultant)
-        # Because we await ainvoke, it returns the state AT the interrupt.
-        # Check Consultant Plan
-        # The above lines now cover consultant plan and verification notes.
-
+        
+        if data.get("status") != "ACCEPTED":
+            print("Error: Expected ACCEPTED status")
+            return
+            
         if not thread_id:
             print("Error: No thread ID returned.")
             return
 
-        # 2. Check Status
-        print("\n--- Step 2: Check Status ---")
-        r = requests.get(f"http://localhost:8000/onboard/{thread_id}/status")
-        status_data = r.json()
-        print("Current Status:", status_data)
-
-        # 3. Resume (Simulate Fix)
-        # We don't actually change the URL in this test because example.com will always fail,
-        # but we verify the RESUME mechanic works (it should re-run and fail again or proceed if we mocked it).
-        # For this test, let's just see if it runs.
-        print("\n--- Step 3: Resume Onboarding ---")
-        resume_payload = {
-            "updated_data": {"note": "I fixed it (simulated)"},
-            "user_message": "Please check again.",
-        }
-        r = requests.post(
-            f"http://localhost:8000/onboard/{thread_id}/resume", json=resume_payload
-        )
-
-        if r.status_code == 200:
-            resume_data = r.json()
-            print(f"Resume Response Status: {resume_data.get('status')}")
-            print("It re-ran the check!")
+        # 2. Poll for Completion (Long Polling)
+        print("\n--- Step 2: Poll for Completion ---")
+        final_status = poll_for_completion(thread_id, max_wait=120, poll_interval=3)
+        
+        if final_status:
+            print("\n--- Final Status ---")
+            print(f"Status: {final_status.get('status')}")
+            print(f"Stage: {final_status.get('stage')}")
+            print(f"Risk Score: {final_status.get('risk_score', 'N/A')}")
+            print(f"Consultant Plan: {final_status.get('consultant_plan', [])}")
+            print(f"Verification Notes: {final_status.get('verification_notes', [])}")
+            print(f"Compliance Issues: {final_status.get('compliance_issues', [])}")
         else:
-            print(f"Resume Failed: {r.text}")
+            print("Failed to get final status")
+            return
+
+        # 3. Resume (if NEEDS_REVIEW)
+        if final_status.get("status") == "NEEDS_REVIEW":
+            print("\n--- Step 3: Resume Onboarding (Async) ---")
+            resume_payload = {
+                "updated_data": {"note": "I fixed it (simulated)"},
+                "user_message": "Please check again.",
+            }
+            r = requests.post(
+                f"http://localhost:8000/onboard/{thread_id}/resume", json=resume_payload
+            )
+
+            if r.status_code == 200:
+                resume_data = r.json()
+                print(f"Resume Response: {resume_data}")
+                
+                # Poll for the resumed job to complete
+                print("\n--- Step 4: Poll After Resume ---")
+                resumed_status = poll_for_completion(thread_id, max_wait=120, poll_interval=3)
+                
+                if resumed_status:
+                    print(f"\nFinal Status After Resume: {resumed_status.get('status')}")
+            else:
+                print(f"Resume Failed: {r.text}")
+        
+        # 4. Debug - List all jobs
+        print("\n--- Debug: List All Jobs ---")
+        r = requests.get("http://localhost:8000/debug/jobs")
+        if r.status_code == 200:
+            jobs_data = r.json()
+            print(f"Active Jobs: {len(jobs_data.get('jobs', []))}")
+            for job in jobs_data.get("jobs", []):
+                print(f"  - {job['thread_id'][:8]}... | {job['status']} | {job['stage']}")
 
     finally:
         print("\nStopping server...")

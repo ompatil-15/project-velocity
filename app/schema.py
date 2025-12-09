@@ -1,7 +1,20 @@
 from typing import TypedDict, Annotated, List, Dict, Any, Optional, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from langgraph.graph.message import add_messages
 from langchain_core.messages import BaseMessage
+from enum import Enum
+
+
+# --- Job Status Tracking ---
+
+class JobStatus(str, Enum):
+    """Status of an onboarding job."""
+    QUEUED = "QUEUED"           # Job received, waiting to start
+    PROCESSING = "PROCESSING"    # Workflow is running
+    NEEDS_REVIEW = "NEEDS_REVIEW"  # Waiting for merchant intervention
+    COMPLETED = "COMPLETED"      # Successfully completed
+    FAILED = "FAILED"            # Failed with error
+
 
 # Pydantic Data Models (for validation)
 
@@ -28,7 +41,7 @@ class SignatoryDetails(BaseModel):
 
 
 class MerchantApplication(BaseModel):
-    api_key: Optional[str] = None  # Simulating auth
+    merchant_id: Optional[str] = None  # UUID - generated if not provided
     business_details: BusinessDetails
     bank_details: BankDetails
     signatory_details: SignatoryDetails
