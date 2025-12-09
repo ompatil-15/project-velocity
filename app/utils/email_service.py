@@ -51,7 +51,7 @@ def prepare_welcome_email_context(
     business = merchant_data.get("business_details", {})
     bank = merchant_data.get("bank_details", {})
     signatory = merchant_data.get("signatory_details", {})
-    
+
     return {
         "merchant_id": merchant_id,
         "business_name": business.get("entity_type", "Your Business"),
@@ -74,13 +74,13 @@ async def send_welcome_email(
 ) -> Dict[str, Any]:
     """
     Send welcome email to merchant on successful onboarding.
-    
+
     Args:
         to_email: Recipient email address
         merchant_data: Merchant application data
         merchant_id: Unique merchant identifier
         agreement_pdf_path: Path to the agreement PDF to attach
-    
+
     Returns:
         Result dict with status and details
     """
@@ -93,7 +93,7 @@ async def send_welcome_email(
             "to": to_email,
             "merchant_id": merchant_id,
         }
-    
+
     # Initialize Resend
     api_key = os.getenv("RESEND_API_KEY")
     if not api_key:
@@ -101,43 +101,45 @@ async def send_welcome_email(
             "status": "skipped",
             "message": "RESEND_API_KEY not configured",
         }
-    
+
     resend.api_key = api_key
-    
+
     # Prepare email context
     context = prepare_welcome_email_context(merchant_data, merchant_id)
-    
+
     # Render templates
     html_content = render_email_template("welcome.html", context)
     text_content = render_email_template("welcome.txt", context)
-    
+
     # Prepare attachments
     attachments = []
     if agreement_pdf_path and os.path.exists(agreement_pdf_path):
         with open(agreement_pdf_path, "rb") as f:
             pdf_content = f.read()
-        attachments.append({
-            "filename": f"Merchant_Agreement_{merchant_id}.pdf",
-            "content": list(pdf_content),
-        })
-    
+        attachments.append(
+            {
+                "filename": f"Merchant_Agreement_{merchant_id}.pdf",
+                "content": list(pdf_content),
+            }
+        )
+
     # Send email
     try:
-        from_email = os.getenv("EMAIL_FROM", "onboarding@payu.in")
-        
+        from_email = os.getenv("EMAIL_FROM")
+
         params = {
             "from": from_email,
             "to": [to_email],
-            "subject": f"Welcome to PayU - Your Merchant Account is Active [{merchant_id}]",
+            "subject": f"Welcome to {os.getenv('COMPANY_NAME', 'Our Service')} - Your Merchant Account is Active [{merchant_id}]",
             "html": html_content,
             "text": text_content,
         }
-        
+
         if attachments:
             params["attachments"] = attachments
-        
+
         email_response = resend.Emails.send(params)
-        
+
         return {
             "status": "sent",
             "message": f"Welcome email sent to {to_email}",
@@ -146,7 +148,7 @@ async def send_welcome_email(
             "merchant_id": merchant_id,
             "has_attachment": bool(attachments),
         }
-        
+
     except Exception as e:
         print(f"[Email] Failed to send email: {e}")
         return {
@@ -176,10 +178,9 @@ async def send_test_email(to_email: str) -> Dict[str, Any]:
             "email": to_email,
         },
     }
-    
+
     return await send_welcome_email(
         to_email=to_email,
         merchant_data=test_data,
         merchant_id=str(uuid.uuid4()),
     )
-
